@@ -6,6 +6,8 @@ import cPickle
 from database import Database, context, bdb
 from twisted.python import log
 
+from bdb_helpers import get_all
+
 
 class ActionDispatcher(object):
     """
@@ -82,20 +84,43 @@ class ActionDispatcher(object):
                 txn.abort()
             raise
 
-    def rollback_session(self, id):
+    def rollback_session(self, sessid, txn=None):
         """
         Undo changes made in session.
         """
 
-        txn = None
+        sessid = str(sessid)
         try:
-            pass
+            if txn is None:
+                txn = context().dbenv().txn_begin()
+                is_tmp_txn = True
+            else:
+                is_tmp_txn = False
+
+            new_sessid = self.start_session(txn)
+
+            sadb = self.session_action.open()
+            adb = self.action.open()
+            actions = get_all(sadb, sessid)
+
+            for act_id in actions:
+                action_dump = adb.get(act_id)
+                action = cPickle.loads(action_dump)
+                action.invert()
+                self.apply_action(action, new_sessid, txn)
+
+            if is_tmp_txn:
+                txn.commit()
+
+            sadb.close()
+            adb.close()
+
         except bdb.DBError, e:
             log.err("Unable to rollback session")
             if not txn is None:
                 txn.abort()
 
-    def apply_action(self, action, sessid=None, txn=None):
+    def apply_action(self, action, sessid=None, txn=None, adb=None, sadb=None):
         """
         Apply specified action in session (created automatically
             if omitted).

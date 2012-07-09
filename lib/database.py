@@ -24,15 +24,38 @@ class Database(object):
         self._flags = flags
         self._open_flags = open_flags
 
-    def open(self):
-        dbh = bdb.DB(self._dbenv)
-        dbtxnh = self._dbenv.txn_begin()
-        dbh.set_flags(self._flags)
-        dbh.open(self._file, self._name, self._type, self._open_flags,
-                 self.DBFILE_PERMISSIONS, dbtxnh)
-        dbtxnh.commit()
+    def open(self, dbtxnh=None):
+        """
+        Open database with stored options and flags
+        in specified transaction (may be useful for opening many
+        databases in one transaction) or in implicitly created one.
+        """
 
-        return dbh
+        # Database may be opened only in transaction
+        #   so create own if not given as arg
+        is_tmp_txn = False
+        try:
+            dbh = bdb.DB(self._dbenv)
+            if dbtxnh is None:
+                dbtxnh = self._dbenv.txn_begin()
+                is_tmp_txn = True
+
+            dbh.set_flags(self._flags)
+            dbh.open(self._file, self._name, self._type,
+                     self._open_flags, self.DBFILE_PERMISSIONS, dbtxnh)
+
+            if is_tmp_txn:
+                dbtxnh.commit()
+
+            return dbh
+        except bdb.DBError, e:
+            log.err("Unable to open database '{0}.{1}'".format(
+                                                        self._file,
+                                                        self._name))
+
+            if is_tmp_txn:
+                dbtxnh.abort()
+            raise
 
 
 @singleton

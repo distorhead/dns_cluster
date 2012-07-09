@@ -99,19 +99,21 @@ class ActionDispatcher(object):
 
             new_sessid = self.start_session(txn)
 
-            sadb = self.session_action.open()
             adb = self.action.open()
-            actions = get_all(sadb, sessid)
+            sadb = self.session_action.open()
+            adbseq = Database.sequence(adb, txn)
 
-            for act_id in actions:
-                action_dump = adb.get(act_id)
+            actions = [adb.get(act_id, txn) for act_id in get_all(sadb, sessid, txn)]
+
+            for action_dump in actions:
                 action = cPickle.loads(action_dump)
                 action.invert()
-                self.apply_action(action, new_sessid, txn)
+                self._apply_action(action, new_sessid, txn, adb, sadb, adbseq)
 
             if is_tmp_txn:
                 txn.commit()
 
+            adbseq.close()
             sadb.close()
             adb.close()
 
@@ -120,7 +122,7 @@ class ActionDispatcher(object):
             if not txn is None:
                 txn.abort()
 
-    def apply_action(self, action, sessid=None, txn=None, adb=None, sadb=None):
+    def apply_action(self, action, sessid=None, txn=None):
         """
         Apply specified action in session (created automatically
             if omitted).
@@ -138,29 +140,32 @@ class ActionDispatcher(object):
             else:
                 sessid = str(sessid)
 
-            action.apply(txn)
-
-            action_dump = cPickle.dumps(action)
             adb = self.action.open()
-            adbseq = Database.sequence(adb, txn)
-            act_id = str(adbseq.get(1, txn))
-            adb.put(act_id, action_dump, txn)
-
             sadb = self.session_action.open()
-            sadb.put(sessid, act_id, txn)
+            adbseq = Database.sequence(adb, txn)
+            self._apply_action(action, sessid, txn, adb, sadb, adbseq)
 
             if is_tmp_txn:
                 txn.commit()
 
             adbseq.close()
-            adb.close()
             sadb.close()
+            adb.close()
         except bdb.DBError:
             log.err("Unable to apply action {0}".format(
                      action.get_name()))
             if not txn is None:
                 txn.abort()
             raise
+
+    def _apply_action(self, action, sessid, txn, adb, sadb, adbseq):
+        action.apply(txn)
+
+        action_dump = cPickle.dumps(action)
+        act_id = str(adbseq.get(1, txn))
+
+        adb.put(act_id, action_dump, txn)
+        sadb.put(sessid, act_id, txn)
 
 
 # vim: set sts=4:

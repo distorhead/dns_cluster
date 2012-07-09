@@ -4,10 +4,10 @@
 from bsddb3 import db as bdb
 
 
-def get_all(dbh, key):
+def get_all(dbh, key, txn=None):
     res = []
-    val = dbh.get(key)
-    c = dbh.cursor()
+    val = dbh.get(key, txn)
+    c = dbh.cursor(txn)
     kv = c.get(key, val, bdb.DB_GET_BOTH)
     while kv:
         res.append(kv[1])

@@ -17,12 +17,20 @@ class ActionDispatcher(object):
         "session": {
             "type": bdb.DB_HASH,
             "flags": 0,
-            "open_flags": bdb.DB_CREATE
+            "open_flags": bdb.DB_CREATE,
+            "autoincrement": 1
         },
-        "journal": {
+        "action": {
             "type": bdb.DB_BTREE,
             "flags": 0,
-            "open_flags": bdb.DB_CREATE
+            "open_flags": bdb.DB_CREATE,
+            "autoincrement": 1
+        },
+        "session_action": {
+            "type": bdb.DB_BTREE,
+            "flags": bdb.DB_DUP | bdb.DB_DUPSORT,
+            "open_flags": bdb.DB_CREATE,
+            "autoincrement": 0
         }
     }
 
@@ -32,23 +40,16 @@ class ActionDispatcher(object):
         assert not self._dbfile is None
 
         for dbname in self.JOURNAL_DATABASES:
-            db = Database(context().dbenv(), self._dbfile, dbname,
+            dbdesc = Database(context().dbenv(), self._dbfile, dbname,
                           self.JOURNAL_DATABASES[dbname]["type"],
                           self.JOURNAL_DATABASES[dbname]["flags"],
                           self.JOURNAL_DATABASES[dbname]["open_flags"])
-            setattr(self, dbname, db)
+            setattr(self, dbname, dbdesc)
 
-        txn = context().dbenv().txn_begin()
-        sdb = self.session.open(txn)
-        jdb = self.journal.open(txn)
-        txn.commit()
-
-        Database.sequence(sdb, None, 0)
-        sdb.close()
-
-        Database.sequence(jdb, None, 0)
-        jdb.close()
-
+            if self.JOURNAL_DATABASES[dbname]["autoincrement"]:
+                db = dbdesc.open()
+                Database.sequence(db, None, 0)
+                db.close()
 
     def start_session(self, txn=None):
         """
@@ -65,8 +66,8 @@ class ActionDispatcher(object):
                 is_tmp_txn = False
 
             dbseq = Database.sequence(db, txn)
-            id = dbseq.get(1, txn)
-            db.put(str(id), '', txn)
+            id = str(dbseq.get(1, txn))
+            db.put(id, '', txn)
 
             if is_tmp_txn:
                 txn.commit()
@@ -85,7 +86,14 @@ class ActionDispatcher(object):
         """
         Undo changes made in session.
         """
-        pass
+
+        txn = None
+        try:
+            pass
+        except bdb.DBError, e:
+            log.err("Unable to rollback session")
+            if not txn is None:
+                txn.abort()
 
     def apply_action(self, action, sessid=None):
         """
@@ -98,21 +106,25 @@ class ActionDispatcher(object):
             txn = context().dbenv().txn_begin()
 
             if sessid is None:
-                sessid = self.start_session(txn)
+                sessid = str(self.start_session(txn))
+            else:
+                sessid = str(sessid)
 
             action.apply(txn)
 
             action_dump = cPickle.dumps(action)
-            db = self.journal.open()
-            dbseq = Database.sequence(db, txn)
+            adb = self.action.open()
+            adbseq = Database.sequence(adb, txn)
+            act_id = str(adbseq.get(1, txn))
+            adb.put(act_id, action_dump, txn)
 
-            id = dbseq.get(1, txn)
-            val = str(sessid) + " " + action_dump
-            db.put(str(id), val, txn)
+            sadb = self.session_action.open()
+            sadb.put(sessid, act_id, txn)
 
             txn.commit()
-            dbseq.close()
-            db.close()
+            adbseq.close()
+            adb.close()
+            sadb.close()
         except bdb.DBError:
             log.err("Unable to apply action {0}".format(
                      action.get_name()))

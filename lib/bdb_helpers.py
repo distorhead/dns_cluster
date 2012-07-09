@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 
 
-from bsddb3 import db
+from bsddb3 import db as bdb
 
 
 def get_all(dbh, key):
     res = []
-    kv = dbh.get(key)
+    val = dbh.get(key)
     c = dbh.cursor()
+    kv = c.get(key, val, bdb.DB_GET_BOTH)
     while kv:
         res.append(kv[1])
-        kv = c.get('', '', db.DB_NEXT_DUP)
+        kv = c.get('', '', bdb.DB_NEXT_DUP)
 
     return res
 
@@ -19,7 +20,7 @@ def delete_pair(dbenvh, dbh, key, val):
     dbtxnh = dbenvh.txn_begin()
     c = dbh.cursor(dbtxnh)
 
-    res = c.get(key, val, db.DB_GET_BOTH)
+    res = c.get(key, val, bdb.DB_GET_BOTH)
     if res:
         c.delete()
 

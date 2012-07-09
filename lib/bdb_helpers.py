@@ -30,8 +30,8 @@ def delete_pair(dbenvh, dbh, key, val):
     return res
 
 
-def print_db(dbh):
-    c = dbh.cursor()
+def print_db(dbh, txn=None):
+    c = dbh.cursor(txn)
     kv = c.first()
     while kv:
         print "'{0}' -> '{1}'".format(kv[0], kv[1])

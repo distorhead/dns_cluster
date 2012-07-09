@@ -95,15 +95,18 @@ class ActionDispatcher(object):
             if not txn is None:
                 txn.abort()
 
-    def apply_action(self, action, sessid=None):
+    def apply_action(self, action, sessid=None, txn=None):
         """
         Apply specified action in session (created automatically
             if omitted).
         """
 
-        txn = None
         try:
-            txn = context().dbenv().txn_begin()
+            if txn is None:
+                txn = context().dbenv().txn_begin()
+                is_tmp_txn = True
+            else:
+                is_tmp_txn = False
 
             if sessid is None:
                 sessid = str(self.start_session(txn))
@@ -121,7 +124,9 @@ class ActionDispatcher(object):
             sadb = self.session_action.open()
             sadb.put(sessid, act_id, txn)
 
-            txn.commit()
+            if is_tmp_txn:
+                txn.commit()
+
             adbseq.close()
             adb.close()
             sadb.close()

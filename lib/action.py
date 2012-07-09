@@ -14,7 +14,8 @@ class Action(object):
         UNDO = 0
         DO = 1
 
-    def __init__(self, state=State.DO, dbenv, dbfile, dbname):
+    def __init__(self, name, dbenv, dbfile, dbname, state=State.DO):
+        self._name = name
         self._dbenv = dbenv
         self._dbfile = dbfile
         self._dbname = dbname
@@ -26,24 +27,24 @@ class Action(object):
     def get_state(self):
         return self._state
 
+    def get_name(self):
+        return self._name
+
     def invert(self):
         self._state ^= 1
 
-    def to_db_record(self):
-        raise exception.NotImplementedError
-
-    def apply(self):
+    def apply(self, dbtxnh):
         if self._state == State.DO:
-            self._apply_do()
+            self._apply_do(dbtxnh)
         elif self._state == State.UNDO:
-            self._apply_undo()
+            self._apply_undo(dbtxnh)
         else:
             assert 0
 
-    def _apply_do(self):
+    def _apply_do(self, dbtxnh):
         raise exception.NotImplementedError("do action not implemented")
 
-    def _apply_undo(self):
+    def _apply_undo(self, dbtxnh):
         raise exception.NotImplementedError("undo action not implemented")
 
 

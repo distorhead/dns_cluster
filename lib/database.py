@@ -15,6 +15,8 @@ class Database(object):
     """
 
     DBFILE_PERMISSIONS = 0660
+    SEQUENCE_KEY = "_seq"
+    SEQUENCE_FLAGS = bdb.DB_CREATE | bdb.DB_THREAD
 
     def __init__(self, dbenv, file, name, type, flags, open_flags):
         self._dbenv = dbenv
@@ -24,7 +26,7 @@ class Database(object):
         self._flags = flags
         self._open_flags = open_flags
 
-    def open(self, dbtxnh=None):
+    def open(self, txn=None):
         """
         Open database with stored options and flags
         in specified transaction (may be useful for opening many
@@ -35,27 +37,37 @@ class Database(object):
         #   so create own if not given as arg
         is_tmp_txn = False
         try:
-            dbh = bdb.DB(self._dbenv)
-            if dbtxnh is None:
-                dbtxnh = self._dbenv.txn_begin()
+            db = bdb.DB(self._dbenv)
+            if txn is None:
+                txn = self._dbenv.txn_begin()
                 is_tmp_txn = True
 
-            dbh.set_flags(self._flags)
-            dbh.open(self._file, self._name, self._type,
-                     self._open_flags, self.DBFILE_PERMISSIONS, dbtxnh)
+            db.set_flags(self._flags)
+            db.open(self._file, self._name, self._type,
+                     self._open_flags, self.DBFILE_PERMISSIONS, txn)
 
             if is_tmp_txn:
-                dbtxnh.commit()
+                txn.commit()
 
-            return dbh
+            return db
         except bdb.DBError, e:
             log.err("Unable to open database '{0}.{1}'".format(
                                                         self._file,
                                                         self._name))
 
             if is_tmp_txn:
-                dbtxnh.abort()
+                txn.abort()
             raise
+
+    @classmethod
+    def sequence(cls, db, txn=None, initial=None):
+        dbseq = bdb.DBSequence(db)
+
+        if not initial is None:
+            dbseq.initial_value(initial)
+
+        dbseq.open(cls.SEQUENCE_KEY, txn, cls.SEQUENCE_FLAGS)
+        return dbseq
 
 
 @singleton

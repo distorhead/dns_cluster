@@ -14,7 +14,10 @@ class Action(object):
         UNDO = 0
         DO = 1
 
-    def __init__(self, name, dbenv, dbfile, dbname, state=State.DO):
+    def __init__(self, name, dbenv, dbfile, dbname, state=None):
+        if state is None:
+            state = self.State.DO
+
         self._name = name
         self._dbenv = dbenv
         self._dbfile = dbfile
@@ -33,18 +36,18 @@ class Action(object):
     def invert(self):
         self._state ^= 1
 
-    def apply(self, dbtxnh):
-        if self._state == State.DO:
-            self._apply_do(dbtxnh)
-        elif self._state == State.UNDO:
-            self._apply_undo(dbtxnh)
+    def apply(self, txn=None):
+        if self._state == self.State.DO:
+            self._apply_do(txn)
+        elif self._state == self.State.UNDO:
+            self._apply_undo(txn)
         else:
             assert 0
 
-    def _apply_do(self, dbtxnh):
+    def _apply_do(self, txn):
         raise exception.NotImplementedError("do action not implemented")
 
-    def _apply_undo(self, dbtxnh):
+    def _apply_undo(self, txn):
         raise exception.NotImplementedError("undo action not implemented")
 
 

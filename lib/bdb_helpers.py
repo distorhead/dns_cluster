@@ -1,13 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import database
 
 from bsddb3 import db as bdb
 
 
-def get_all(dbh, key, txn=None):
+def get_all(db, key, txn=None):
     res = []
-    val = dbh.get(key, txn)
-    c = dbh.cursor(txn)
+    val = db.get(key, txn)
+    c = db.cursor(txn)
     kv = c.get(key, val, bdb.DB_GET_BOTH)
     while kv:
         res.append(kv[1])
@@ -16,18 +17,22 @@ def get_all(dbh, key, txn=None):
     return res
 
 
-def delete_pair(dbenvh, dbh, key, val):
-    dbtxnh = dbenvh.txn_begin()
-    c = dbh.cursor(dbtxnh)
+def delete_pair(db, key, val, txn):
+    c = db.cursor(txn)
 
     res = c.get(key, val, bdb.DB_GET_BOTH)
     if res:
         c.delete()
 
     c.close()
-    dbtxnh.commit()
-
     return res
+
+
+def delete(dbh, key, txn=None):
+    try:
+        dbh.delete(key, txn)
+    except bdb.DBNotFoundError:
+        pass
 
 
 def print_db(dbh, txn=None):

@@ -13,6 +13,24 @@ def singleton(cls):
     return get_instance
 
 
+def uniq(seq):
+    s = set()
+    def unique(val):
+        if not val in s:
+            s.add(val)
+            return True
+        else:
+            return False
+
+    return filter(unique, seq)
+
+
+def reorder(s):
+    res = ''
+    for ch in reversed(s):
+        res += ch
+    return res
+
 
 # vim: set sts=4:
 # vim: set ts=4:

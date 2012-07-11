@@ -73,6 +73,26 @@ class Database(object):
 @singleton
 class context:
     DLZ_DATABASES = {
+        "arena": {
+            "type": bdb.DB_BTREE,
+            "flags": 0,
+            "open_flags": bdb.DB_CREATE
+        },
+        "arena_segment": {
+            "type": bdb.DB_BTREE,
+            "flags": bdb.DB_DUP|bdb.DB_DUPSORT,
+            "open_flags": bdb.DB_CREATE
+        },
+        "segment_zone": {
+            "type": bdb.DB_BTREE,
+            "flags": 0,
+            "open_flags": bdb.DB_CREATE
+        },
+        "zone_dns_data": {
+            "type": bdb.DB_BTREE,
+            "flags": bdb.DB_DUP|bdb.DB_DUPSORT,
+            "open_flags": bdb.DB_CREATE
+        },
         "dns_data": {
             "type": bdb.DB_HASH,
             "flags": bdb.DB_DUP|bdb.DB_DUPSORT,

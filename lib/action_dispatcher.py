@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 
-import cPickle
-
 from database import Database, context, bdb
 from twisted.python import log
 
@@ -106,7 +104,7 @@ class ActionDispatcher(object):
             actions = [adb.get(act_id, txn) for act_id in get_all(sadb, sessid, txn)]
 
             for action_dump in actions:
-                action = cPickle.loads(action_dump)
+                action = Action.unserialize(action_dump)
                 action.invert()
                 self._apply_action(action, new_sessid, txn, adb, sadb, adbseq)
 
@@ -153,7 +151,7 @@ class ActionDispatcher(object):
             adb.close()
         except bdb.DBError:
             log.err("Unable to apply action {0}".format(
-                     action.get_name()))
+                     action.__class__.__name__))
             if not txn is None:
                 txn.abort()
             raise
@@ -161,7 +159,7 @@ class ActionDispatcher(object):
     def _apply_action(self, action, sessid, txn, adb, sadb, adbseq):
         action.apply(txn)
 
-        action_dump = cPickle.dumps(action)
+        action_dump = action.serialize()
         act_id = str(adbseq.get(1, txn))
 
         adb.put(act_id, action_dump, txn)

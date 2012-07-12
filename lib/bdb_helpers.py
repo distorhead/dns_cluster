@@ -7,12 +7,16 @@ from bsddb3 import db as bdb
 
 def get_all(db, key, txn=None):
     res = []
-    val = db.get(key, txn)
-    c = db.cursor(txn)
-    kv = c.get(key, val, bdb.DB_GET_BOTH)
-    while kv:
-        res.append(kv[1])
-        kv = c.get('', '', bdb.DB_NEXT_DUP)
+    if db.exists(key, txn):
+        val = db.get(key, txn)
+        c = db.cursor(txn)
+
+        kv = c.get(key, val, bdb.DB_GET_BOTH)
+        while kv:
+            res.append(kv[1])
+            kv = c.get('', '', bdb.DB_NEXT_DUP)
+
+        c.close()
 
     return res
 
@@ -41,6 +45,7 @@ def print_db(dbh, txn=None):
     while kv:
         print "'{0}' -> '{1}'".format(kv[0], kv[1])
         kv = c.next()
+    c.close()
 
 
 

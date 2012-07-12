@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
+from lib import exception
+from lib.action import Action
+from bdb_helpers import get_all
 
 from database import Database, context, bdb
 from twisted.python import log
-
-from bdb_helpers import get_all
 
 
 class ActionDispatcher(object):
@@ -75,7 +76,7 @@ class ActionDispatcher(object):
             dbseq.close()
             db.close()
 
-            return id
+            return int(id)
         except bdb.DBError, e:
             log.err("Unable to create session")
             if not txn is None:
@@ -95,7 +96,7 @@ class ActionDispatcher(object):
             else:
                 is_tmp_txn = False
 
-            new_sessid = self.start_session(txn)
+            new_sessid = str(self.start_session(txn))
 
             adb = self.action.open()
             sadb = self.session_action.open()
@@ -103,7 +104,7 @@ class ActionDispatcher(object):
 
             actions = [adb.get(act_id, txn) for act_id in get_all(sadb, sessid, txn)]
 
-            for action_dump in actions:
+            for action_dump in reversed(actions):
                 action = Action.unserialize(action_dump)
                 action.invert()
                 self._apply_action(action, new_sessid, txn, adb, sadb, adbseq)
@@ -115,10 +116,12 @@ class ActionDispatcher(object):
             sadb.close()
             adb.close()
 
-        except bdb.DBError, e:
-            log.err("Unable to rollback session")
+        except:
+            log.err("Unable to rollback session '{0}'".format(sessid))
             if not txn is None:
                 txn.abort()
+                log.err("Transaction aborted")
+            raise
 
     def apply_action(self, action, sessid=None, txn=None):
         """
@@ -149,11 +152,12 @@ class ActionDispatcher(object):
             adbseq.close()
             sadb.close()
             adb.close()
-        except bdb.DBError:
+        except:
             log.err("Unable to apply action {0}".format(
                      action.__class__.__name__))
             if not txn is None:
                 txn.abort()
+                log.err("Transaction aborted")
             raise
 
     def _apply_action(self, action, sessid, txn, adb, sadb, adbseq):

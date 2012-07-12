@@ -28,7 +28,7 @@ class Action(object):
 
     @classmethod
     def unserialize(cls, string):
-        action_data = BSON.decode(string)
+        action_data = BSON.decode(BSON(string))
 
         if not action_data.has_key("name"):
             raise exception.ActionError("unable to construct action: "
@@ -92,98 +92,76 @@ class AddArena(Action):
 
     def _apply_do(self, txn):
         adb = database.context().arena.open()
-        if adb.get(self.arena_name, txn) is None:
+        if not adb.exists(self.arena_name, txn):
             adb.put(self.arena_name, '', txn)
         adb.close()
 
     def _apply_undo(self, txn):
         adb = database.context().arena.open()
         asdb = database.context().arena_segment.open()
-        szdb = database.context().segment_zone.open()
-        zddb = database.context().zone_dns_data.open()
-        zdb = database.context().dns_zone.open()
-        ddb = database.context().dns_data.open()
-        xdb = database.context().dns_xfr.open()
-        cdb = database.context().dns_client.open()
 
-        # Selection and deletion steps separated
-        # because selecting data from database
-        # after removing data from this database
-        # isn't allowed in the same transaction.
-
-        # select all needed data first
-        data = {}
-        segments = bdb_helpers.get_all(asdb, self.arena_name, txn)
-        for segm in segments:
-            sz_key = self.arena_name + ' ' + segm
-            zones = bdb_helpers.get_all(szdb, sz_key, txn)
-            data[segm] = {}
-            for rzone in zones:
-                zone = reorder(rzone)
-                data_keys = bdb_helpers.get_all(zddb, zone, txn)
-                data[segm][rzone] = (zone, data_keys)
-
-        # delete all selected data
-        for segm in data:
-            for rzone in data[segm]:
-                for data_key in data[segm][rzone][1]:
-                    bdb_helpers.delete(ddb, data_key, txn)
-
-                bdb_helpers.delete(zddb, data[segm][rzone][0], txn)
-                bdb_helpers.delete(xdb, data[segm][rzone][0], txn)
-                bdb_helpers.delete(cdb, data[segm][rzone][0], txn)
-                bdb_helpers.delete(zdb, rzone, txn)
-
-            bdb_helpers.delete(szdb, rzone, txn)
-
-        bdb_helpers.delete(asdb, self.arena_name, txn)
+        if asdb.exists(self.arena_name, txn):
+            raise exception.ActionError("unable to delete arena '{0}': "
+                                        "arena contains segments".format(
+                                            self.arena_name))
         bdb_helpers.delete(adb, self.arena_name, txn)
 
         adb.close()
         asdb.close()
-        szdb.close()
-        zddb.close()
-        zdb.close()
-        ddb.close()
-        xdb.close()
-        cdb.close()
 
 
 @Action.register_action
 class AddSegment(Action):
-    def __init__(self, data, state=None):
-        super(self.__class__, self).__init__(state)
-
+    @classmethod
+    def from_data(cls, data):
         if not data.has_key("arena_name"):
             raise exception.ActionError("unable to construct action: "
                               "wrong action data: arena_name required")
-        self._arena_name = data["arena_name"]
 
         if not data.has_key("segment_name"):
             raise exception.ActionError("unable to construct action: "
-                              "wrong action data: segment_name required")
-        self._segment_name = data["segment_name"]
+                              "wrong action data: arena_name required")
+
+        if not data.has_key("state"):
+            raise exception.ActionError("unable to construct action: "
+                              "wrong action data: state required")
+
+        return cls(str(data["arena_name"]), str(data["segment_name"]), data["state"])
+
+    def __init__(self, arena_name, segment_name, state=None):
+        super(self.__class__, self).__init__(state)
+        self.arena_name = arena_name
+        self.segment_name = segment_name
 
     def _apply_do(self, txn):
         adb = database.context().arena.open()
         asdb = database.context().arena_segment.open()
 
-        if adb.get(self._arena_name, txn) is None:
-            raise exception.ActionError("arena '{0}' doesn't exist")
+        if not adb.exists(self.arena_name, txn):
+            raise exception.ActionError("unable to add segment '{0}': "
+                                        "arena '{1}' doesn't exists".format(
+                                        self.segment_name, self.arena_name))
 
-        if not self._segment_name in bdb_helpers.get_all(asdb, self._arena_name, txn):
-            asdb.put(self._arena_name, self._segment_name, txn)
+        segments = bdb_helpers.get_all(asdb, self.arena_name, txn)
+        if not self.segment_name in segments:
+            asdb.put(self.arena_name, self.segment_name, txn)
 
-        asdb.close()
         adb.close()
+        asdb.close()
 
     def _apply_undo(self, txn):
-        adb = database.context().arena.open()
         asdb = database.context().arena_segment.open()
+        szdb = database.context().segment_zone.open()
 
+        if szdb.exists(self.arena_name + ' ' + self.segment_name, txn):
+            raise exception.ActionError("unable to delete segment '{0}': "
+                                        "segment contains zones".format(
+                                        self.segment_name))
+
+        bdb_helpers.delete_pair(asdb, self.arena_name, self.segment_name, txn)
 
         asdb.close()
-        adb.close()
+        szdb.close()
 
 class AddZone(Action): pass
 class AddRecord_A(Action): pass

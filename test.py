@@ -70,4 +70,5 @@ zddb.put('myzone', 'myzone ns')
 zddb.put('fffuuuuu', 'fffuuuuu @')
 
 
-act = AddArena('myarena')
+act_arena = AddArena('myarena')
+act_segm = AddSegment('myarena', 'ololosegm')

@@ -85,7 +85,7 @@ class context:
         },
         "segment_zone": {
             "type": bdb.DB_BTREE,
-            "flags": 0,
+            "flags": bdb.DB_DUP|bdb.DB_DUPSORT,
             "open_flags": bdb.DB_CREATE
         },
         "zone_dns_data": {

@@ -39,6 +39,11 @@ def delete(dbh, key, txn=None):
         pass
 
 
+def pair_exists(db, key, val, txn):
+    c = db.cursor(txn)
+    return not c.get(key, val, bdb.DB_GET_BOTH) is None
+
+
 def print_db(dbh, txn=None):
     c = dbh.cursor(txn)
     kv = c.first()

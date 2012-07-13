@@ -15,6 +15,7 @@ class Transaction(object):
     """
     Bdb transaction wrapper with context manager support.
     """
+
     def __init__(self, dbenv):
         self._dbenv = dbenv
         self._used = False

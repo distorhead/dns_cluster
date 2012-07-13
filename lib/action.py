@@ -2,11 +2,15 @@
 
 from bsddb3 import db
 from bson import BSON
+from exceptions import NotImplementedError
 
 from lib import exception
 from lib import database
 from lib import bdb_helpers
 from lib.common import reorder
+
+
+class ActionError(Exception): pass
 
 
 class Action(object):

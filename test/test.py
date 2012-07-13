@@ -1,25 +1,10 @@
-from lib.database import *
-from lib.action_dispatcher import *
-from lib.bdb_helpers import print_db, get_all
-from lib.action import *
+from test.context import *
 
 
-context(env_homedir="/var/lib/bind", dbfile='dlz.db')
 ad = ActionDispatcher(dbfile='dlz.db')
-
-adb = context().arena.open()
-asdb = context().arena_segment.open()
-szdb = context().segment_zone.open()
-zddb = context().zone_dns_data.open()
-zdb = context().dns_zone.open()
-ddb = context().dns_data.open()
-xdb = context().dns_xfr.open()
-cdb = context().dns_client.open()
-
 j_sdb = ad.session.open()
 j_adb = ad.action.open()
 j_sadb = ad.session_action.open()
-
 
 adb.put('myarena', '')
 

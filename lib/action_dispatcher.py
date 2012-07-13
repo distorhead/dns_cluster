@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 
+import database
+import bdb_helpers
+
 from lib import exception
 from lib.action import Action
-from bdb_helpers import get_all
 
-from database import Database, context, bdb
 from twisted.python import log
 
 
@@ -41,7 +42,7 @@ class ActionDispatcher(object):
         assert not self._dbfile is None
 
         for dbname in self.JOURNAL_DATABASES:
-            dbdesc = Database(context().dbenv(), self._dbfile, dbname,
+            dbdesc = Database(database.context().dbenv(), self._dbfile, dbname,
                           self.JOURNAL_DATABASES[dbname]["type"],
                           self.JOURNAL_DATABASES[dbname]["flags"],
                           self.JOURNAL_DATABASES[dbname]["open_flags"])
@@ -61,7 +62,7 @@ class ActionDispatcher(object):
             db = self.session.open()
 
             if txn is None:
-                txn = context().dbenv().txn_begin()
+                txn = database.context().dbenv().txn_begin()
                 is_tmp_txn = True
             else:
                 is_tmp_txn = False
@@ -91,7 +92,7 @@ class ActionDispatcher(object):
         sessid = str(sessid)
         try:
             if txn is None:
-                txn = context().dbenv().txn_begin()
+                txn = databse.context().dbenv().txn_begin()
                 is_tmp_txn = True
             else:
                 is_tmp_txn = False
@@ -123,18 +124,15 @@ class ActionDispatcher(object):
                 log.err("Transaction aborted")
             raise
 
-    def apply_action(self, action, sessid=None, txn=None):
+    def apply_action(self, action, sessid=None):
         """
         Apply specified action in session (created automatically
             if omitted).
         """
 
+        txn = None
         try:
-            if txn is None:
-                txn = context().dbenv().txn_begin()
-                is_tmp_txn = True
-            else:
-                is_tmp_txn = False
+            txn = database.context().dbenv().txn_begin()
 
             if sessid is None:
                 sessid = str(self.start_session(txn))
@@ -146,8 +144,7 @@ class ActionDispatcher(object):
             adbseq = Database.sequence(adb, txn)
             self._apply_action(action, sessid, txn, adb, sadb, adbseq)
 
-            if is_tmp_txn:
-                txn.commit()
+            txn.commit()
 
             adbseq.close()
             sadb.close()

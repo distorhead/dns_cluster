@@ -1,15 +1,15 @@
-from lib import database
 from lib.bdb_helpers import print_db, get_all
+from lib.database import *
 
-database.context(env_homedir="/var/lib/bind", dbfile='dlz.db')
+context(dbenv_homedir="/var/lib/bind", dbfile='dlz.db')
 
-adb = database.context().pool().arena.open()
-asdb = database.context().pool().arena_segment.open()
-szdb = database.context().pool().segment_zone.open()
-zddb = database.context().pool().zone_dns_data.open()
-zdb = database.context().pool().dns_zone.open()
-ddb = database.context().pool().dns_data.open()
-xdb = database.context().pool().dns_xfr.open()
-cdb = database.context().pool().dns_client.open()
+adb  = context().dbpool().arena.open()
+asdb = context().dbpool().arena_segment.open()
+szdb = context().dbpool().segment_zone.open()
+zddb = context().dbpool().zone_dns_data.open()
+zdb  = context().dbpool().dns_zone.open()
+ddb  = context().dbpool().dns_data.open()
+xdb  = context().dbpool().dns_xfr.open()
+cdb  = context().dbpool().dns_client.open()
 
 

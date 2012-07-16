@@ -17,21 +17,21 @@ class ActionDispatcher(object):
 
     JOURNAL_DATABASES = {
         "session": {
-            "type": bdb.DB_HASH,
+            "type": database.bdb.DB_HASH,
             "flags": 0,
-            "open_flags": bdb.DB_CREATE,
+            "open_flags": database.bdb.DB_CREATE,
             "autoincrement": 1
         },
         "action": {
-            "type": bdb.DB_BTREE,
+            "type": database.bdb.DB_BTREE,
             "flags": 0,
-            "open_flags": bdb.DB_CREATE,
+            "open_flags": database.bdb.DB_CREATE,
             "autoincrement": 1
         },
         "session_action": {
-            "type": bdb.DB_BTREE,
-            "flags": bdb.DB_DUP | bdb.DB_DUPSORT,
-            "open_flags": bdb.DB_CREATE,
+            "type": database.bdb.DB_BTREE,
+            "flags": database.bdb.DB_DUP | database.bdb.DB_DUPSORT,
+            "open_flags": database.bdb.DB_CREATE,
             "autoincrement": 0
         }
     }
@@ -42,7 +42,7 @@ class ActionDispatcher(object):
         assert not self._dbfile is None
 
         for dbname in self.JOURNAL_DATABASES:
-            dbdesc = Database(database.context().dbenv(), self._dbfile, dbname,
+            dbdesc = database.Database(database.context().dbenv(), self._dbfile, dbname,
                           self.JOURNAL_DATABASES[dbname]["type"],
                           self.JOURNAL_DATABASES[dbname]["flags"],
                           self.JOURNAL_DATABASES[dbname]["open_flags"])
@@ -50,7 +50,7 @@ class ActionDispatcher(object):
 
             if self.JOURNAL_DATABASES[dbname]["autoincrement"]:
                 db = dbdesc.open()
-                Database.sequence(db, None, 0)
+                database.Database.sequence(db, None, 0)
                 db.close()
 
     def start_session(self, txn=None):
@@ -78,7 +78,7 @@ class ActionDispatcher(object):
             db.close()
 
             return int(id)
-        except bdb.DBError, e:
+        except database.bdb.DBError, e:
             log.err("Unable to create session")
             if not txn is None:
                 txn.abort()

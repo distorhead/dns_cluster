@@ -119,6 +119,21 @@ class Database(object):
         return dbseq
 
 
+class DatabasePool(object):
+    def __init__(self, databases_spec, dbenv, dbfile):
+        for dbname in databases_spec:
+            dbdesc = Database(dbenv, dbfile, dbname,
+                              databases_spec[dbname]["type"],
+                              databases_spec[dbname]["flags"],
+                              databases_spec[dbname]["open_flags"])
+            setattr(self, dbname, dbdesc)
+
+            if databases_spec[dbname].get("autoincrement", False):
+                db = dbdesc.open()
+                Database.sequence(db, None, 0)
+                db.close()
+
+
 @singleton
 class context:
     DATABASES = {
@@ -199,25 +214,17 @@ class context:
                          bdb.DB_INIT_LOG | bdb.DB_INIT_TXN)
 
     def __init__(self, *args, **kwargs):
-        self._env_flags = kwargs.get("env_flags", self.ENV_FLAGS_DEFAULT)
-        self._env_homedir = kwargs.get("env_homedir", None)
+        self._dbenv_flags = kwargs.get("dbenv_flags", self.ENV_FLAGS_DEFAULT)
+        self._dbenv_homedir = kwargs.get("dbenv_homedir", None)
         self._dbfile = kwargs.get("dbfile", None)
 
-        assert not self._env_homedir is None
+        assert not self._dbenv_homedir is None
         assert not self._dbfile is None
    
         self._dbenv = bdb.DBEnv()
-        self._dbenv.open(self._env_homedir, self._env_flags)
+        self._dbenv.open(self._dbenv_homedir, self._dbenv_flags)
 
-        class Pool: pass
-        self._pool = Pool()
-
-        for dbname in self.DATABASES:
-            db = Database(self._dbenv, self._dbfile, dbname,
-                          self.DATABASES[dbname]["type"],
-                          self.DATABASES[dbname]["flags"],
-                          self.DATABASES[dbname]["open_flags"])
-            setattr(self._pool, dbname, db)
+        self._dbpool = DatabasePool(self.DATABASES, self._dbenv, self._dbfile)
 
         atexit.register(self._terminate)
 
@@ -230,8 +237,14 @@ class context:
     def dbenv(self):
         return self._dbenv
 
-    def pool(self):
-        return self._pool
+    def dbenv_homedir(self):
+        return self._dbenv_homedir
+
+    def dbfile(self):
+        return self._dbfile
+
+    def dbpool(self):
+        return self._dbpool
 
     def transaction(self):
         return Transaction(self.dbenv())

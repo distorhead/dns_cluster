@@ -1,4 +1,6 @@
-from test.context import *
+from context import *
+from lib.action_dispatcher import ActionDispatcher
+from lib.action import *
 
 
 ad = ActionDispatcher(dbfile='dlz.db')

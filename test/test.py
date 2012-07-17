@@ -1,12 +1,11 @@
 from context import *
-from lib.action_dispatcher import ActionDispatcher
 from lib.action import *
+from lib.action import context as act_context
 
 
-ad = ActionDispatcher(dbfile='dlz.db')
-j_sdb = ad.session.open()
-j_adb = ad.action.open()
-j_sadb = ad.session_action.open()
+j_sdb = act_context().dbpool().session.open()
+j_adb = act_context().dbpool().action.open()
+j_sadb = act_context().dbpool().session_action.open()
 
 adb.put('myarena', '')
 

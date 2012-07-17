@@ -39,7 +39,10 @@ class ActionDispatcher(object):
     def __init__(self, *args, **kwargs):
         self._dbfile = kwargs.get("dbfile", None)
 
+        #TODO: take dbfile from context
         assert not self._dbfile is None
+
+        #TODO: use DatabasePool
 
         for dbname in self.JOURNAL_DATABASES:
             dbdesc = database.Database(database.context().dbenv(), self._dbfile, dbname,

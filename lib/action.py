@@ -67,7 +67,7 @@ class Action(object):
         elif self.state == self.State.UNDO:
             self._apply_undo(txn)
         else:
-            assert 0
+            assert 0, "Invalid action state"
 
     def _apply_do(self, txn):
         raise exception.NotImplementedError("do action not implemented")

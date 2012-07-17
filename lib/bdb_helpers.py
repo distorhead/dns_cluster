@@ -53,8 +53,4 @@ def print_db(dbh, txn=None):
     c.close()
 
 
-
-# vim: set sts=4:
-# vim: set ts=4:
-# vim: set sw=4:
-# vim: set expandtab:
+# vim:sts=4:ts=4:sw=4:expandtab:

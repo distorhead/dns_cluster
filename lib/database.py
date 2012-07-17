@@ -88,29 +88,20 @@ class Database(object):
 
         # Transactional database may be opened only in transaction
         #   so create own if not given as arg
-        is_tmp_txn = False
-        try:
-            db = bdb.DB(self._dbenv)
-            if txn is None:
-                txn = self._dbenv.txn_begin()
-                is_tmp_txn = True
+        if txn is None:
+            t = Transaction(self._dbenv)
+            with t as txn:
+                return self._do_open(txn)
+        else:
+            return self._do_open(txn)
 
-            db.set_flags(self._flags)
-            db.open(self._file, self._name, self._type,
-                     self._open_flags, self.DBFILE_PERMISSIONS, txn)
+    def _do_open(self, txn):
+        db = bdb.DB(self._dbenv)
+        db.set_flags(self._flags)
+        db.open(self._file, self._name, self._type,
+                 self._open_flags, self.DBFILE_PERMISSIONS, txn)
 
-            if is_tmp_txn:
-                txn.commit()
-
-            return db
-        except bdb.DBError, e:
-            log.err("Unable to open database '{0}.{1}'".format(
-                                                        self._file,
-                                                        self._name))
-
-            if is_tmp_txn:
-                txn.abort()
-            raise
+        return db
 
     @classmethod
     def sequence(cls, db, txn=None, initial=None):
@@ -124,6 +115,11 @@ class Database(object):
 
 
 class DatabasePool(object):
+    """
+    Class used to store specified database descriptors
+    as object attributes.
+    """
+
     def __init__(self, databases_spec, dbenv, dbfile):
         for dbname in databases_spec:
             dbdesc = Database(dbenv, dbfile, dbname,
@@ -254,8 +250,4 @@ class context:
         return Transaction(self.dbenv())
 
 
-
-# vim: set sts=4:
-# vim: set ts=4:
-# vim: set sw=4:
-# vim: set expandtab:
+# vim:sts=4:ts=4:sw=4:expandtab:

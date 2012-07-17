@@ -28,26 +28,27 @@ class Lock(object):
         if self._used:
             raise LockError("Lock object must not be used repeatedly")
 
-    def _check_locked(self):
-        if not self._locked:
-            raise LockError("Lock is not activated")
-
     def __enter__(self):
-        return self.lock()
+        return self.acquire()
 
     def __exit__(self, type, value, traceback):
-        self.unlock()
+        self.release()
 
-    def lock(self):
+    def acquire(self):
         self._check_used()
+        if self._locked:
+            raise LockError("Lock is already acquired")
+
         res = context().acquire(self._resource,
                 self._sessid, self._timeout)
         self._locked = True
         return res
 
-    def unlock(self):
+    def release(self):
         self._check_used()
-        self._check_locked()
+        if not self._locked:
+            raise LockError("Lock is not acquired")
+
         context().release(self._resource)
         self._used = True
 

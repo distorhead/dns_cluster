@@ -11,6 +11,47 @@ from lib.common import singleton
 class LockError(Exception): pass
 
 
+class Lock(object):
+    """
+    Class provides wrapper over lock context with object 
+    interface and context manager support.
+    """
+
+    def __init__(self, resource, sessid, timeout):
+        self._resource = resource
+        self._sessid = sessid
+        self._timeout = timeout
+        self._used = False
+        self._locked = False
+
+    def _check_used(self):
+        if self._used:
+            raise LockError("Lock object must not be used repeatedly")
+
+    def _check_locked(self):
+        if not self._locked:
+            raise LockError("Lock is not activated")
+
+    def __enter__(self):
+        return self.lock()
+
+    def __exit__(self, type, value, traceback):
+        self.unlock()
+
+    def lock(self):
+        self._check_used()
+        res = context().acquire(self._resource,
+                self._sessid, self._timeout)
+        self._locked = True
+        return res
+
+    def unlock(self):
+        self._check_used()
+        self._check_locked()
+        context().release(self._resource)
+        self._used = True
+
+
 @singleton
 class context(object):
     """
@@ -41,6 +82,9 @@ class context(object):
         self._dbpool = database.DatabasePool(self.DATABASES,
                                              database.context().dbenv(),
                                              database.context().dbfile())
+
+    def lock(self, resource, sessid, timeout=None):
+        return Lock(resource, sessid, timeout)
 
     def acquire(self, resource, sessid, timeout=None):
         if timeout is None:

@@ -20,9 +20,13 @@ class Transaction(object):
         self._dbenv = dbenv
         self._used = False
 
-    def _check_valid(self):
+    def _check_used(self):
         if self._used:
             raise TransactionError("Transaction object must not be used repeatedly")
+
+    def _check_started(self):
+        if not hasattr(self, "_txn"):
+            raise TransactionError("Transaction is not started")
 
     def __enter__(self):
         return self.start()
@@ -35,24 +39,24 @@ class Transaction(object):
             self.rollback()
 
     def get(self):
-        self._check_valid()
-        if hasattr(self, "_txn"):
-            return self._txn
-        else:
-            raise TransactionError("Transaction is not started")
+        self._check_used()
+        self._check_started()
+        return self._txn
 
     def start(self):
-        self._check_valid()
+        self._check_used()
         self._txn = self._dbenv.txn_begin()
         return self._txn
 
     def commit(self):
-        self._check_valid()
+        self._check_used()
+        self._check_started()
         self._txn.commit()
         self._used = True
 
     def rollback(self):
-        self._check_valid()
+        self._check_used()
+        self._check_started()
         self._txn.abort()
         self._used = True
 

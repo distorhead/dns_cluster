@@ -198,77 +198,43 @@ class journal(object):
                                              database.context().dbenv(),
                                              database.context().dbfile())
 
-    def start_session(self, txn=None):
+    def start_session(self):
         """
         Get new session id.
         """
+        sdb = self.dbpool().session.open()
 
-        try:
-            db = self.dbpool().session.open()
-
-            if txn is None:
-                txn = database.context().dbenv().txn_begin()
-                is_tmp_txn = True
-            else:
-                is_tmp_txn = False
-
-            dbseq = database.Database.sequence(db, txn)
+        with database.context().transaction() as txn:
+            dbseq = database.Database.sequence(sdb, txn)
             id = str(dbseq.get(1, txn))
-            db.put(id, '', txn)
-
-            if is_tmp_txn:
-                txn.commit()
-
+            sdb.put(id, '', txn)
             dbseq.close()
-            db.close()
 
-            return int(id)
-        except database.bdb.DBError, e:
-            log.err("Unable to create session")
-            if not txn is None:
-                txn.abort()
-            raise
+        sdb.close()
+        return int(id)
 
-    def rollback_session(self, sessid, txn=None):
+    def rollback_session(self, sessid):
         """
         Undo changes made in session.
         """
 
         sessid = str(sessid)
-        try:
-            if txn is None:
-                txn = database.context().dbenv().txn_begin()
-                is_tmp_txn = True
-            else:
-                is_tmp_txn = False
+        new_sessid = str(self.start_session())
 
-            new_sessid = str(self.start_session(txn))
+        adb = self.dbpool().action.open()
+        sadb = self.dbpool().session_action.open()
 
-            adb = self.dbpool().action.open()
-            sadb = self.dbpool().session_action.open()
-            adbseq = database.Database.sequence(adb, txn)
-
+        with database.context().transaction() as txn:
             actions = [adb.get(act_id, txn) for act_id
                         in bdb_helpers.get_all(sadb, sessid, txn)]
 
-            for action_dump in reversed(actions):
-                action = Action.unserialize(action_dump)
-                action.invert()
-                self._apply_action(action, new_sessid, txn, adb, sadb, adbseq)
+        adb.close()
+        sadb.close()
 
-            if is_tmp_txn:
-                txn.commit()
-
-            adbseq.close()
-            sadb.close()
-            adb.close()
-
-        except:
-            log.err("Unable to rollback session '{0}'".format(sessid))
-            if not txn is None:
-                txn.abort()
-                log.err("Transaction aborted")
-            raise
+        for action_dump in reversed(actions):
+            action = Action.unserialize(action_dump)
+            action.invert()
+            action.apply(new_sessid)
 
     def apply_action(self, action, sessid=None):
         """

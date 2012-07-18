@@ -13,7 +13,7 @@ class LockError(Exception): pass
 
 class Lock(object):
     """
-    Class provides wrapper over lock context with object 
+    Class provides wrapper over lock manager with object 
     interface and context manager support.
     """
 
@@ -39,7 +39,7 @@ class Lock(object):
         if self._locked:
             raise LockError("Lock is already acquired")
 
-        res = context().acquire(self._resource,
+        res = manager().acquire(self._resource,
                 self._sessid, self._timeout)
         self._locked = True
         return res
@@ -49,12 +49,27 @@ class Lock(object):
         if not self._locked:
             raise LockError("Lock is not acquired")
 
-        context().release(self._resource)
+        manager().release(self._resource)
         self._used = True
+
+    def is_locked(self):
+        if not self._used:
+            return self._locked
+        else:
+            return False
+
+    def is_used(self):
+        return self._used
+
+    def resource(self):
+        return self._resource
+
+    def sessid(self):
+        return self._sessid
 
 
 @singleton
-class context(object):
+class manager(object):
     """
     Class used to manage resorces locks.
     Resorce locks stored into database and

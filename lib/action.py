@@ -4,10 +4,12 @@ from bsddb3 import db
 from bson import BSON
 from exceptions import NotImplementedError
 from twisted.python import log
+from twisted.internet import defer
 
 from lib import exception
 from lib import database
 from lib import bdb_helpers
+from lib import lock
 from lib.common import reorder, singleton
 
 
@@ -36,12 +38,16 @@ class Action(object):
         action_data = BSON.decode(BSON(string))
 
         if not action_data.has_key("name"):
-            raise exception.ActionError("unable to construct action: "
+            raise ActionError("unable to construct action: "
                               "action name required")
 
         if not action_data.has_key("data"):
-            raise exception.ActionError("unable to construct action: "
+            raise ActionError("unable to construct action: "
                               "action data required")
+
+        if not cls.registered_actions.has_key(action_data["name"]):
+            raise ActionError("unable to construct action '{0}': "
+                              "no such action existed".format(action_data["name"]));
 
         act_cls = cls.registered_actions[action_data["name"]]
         return act_cls.from_data(action_data["data"])
@@ -62,19 +68,101 @@ class Action(object):
     def invert(self):
         self.state ^= 1
 
-    def apply(self, sessid, txn):
-        if self.state == self.State.DO:
-            self._apply_do(sessid, txn)
-        elif self.state == self.State.UNDO:
-            self._apply_undo(sessid, txn)
-        else:
-            assert 0, "Invalid action state"
+    def apply(self, sessid):
+        print 'apply'
+        act_defer = defer.Deferred()
+
+        lock_defer, lock_objs = self._acquire_locks(sessid)
+        lock_defer.addErrback(self._acquire_locks_eb, lock_objs, act_defer)
+        lock_defer.addCallback(self._on_locks_acquired, sessid, act_defer)
+        print 'after adding callbacks to lock_defer'
+
+        print 'adding act_defer callback'
+        act_defer.addCallback(self._release_locks_cb, lock_objs)
+        print 'adding act_defer errback'
+        act_defer.addErrback(self._release_locks_eb, lock_objs)
+
+        return act_defer
+
+    def _on_locks_acquired(self, _, sessid, act_defer):
+        print 'on locks acquired'
+        try:
+            with database.context().transaction() as txn:
+                if self.state == self.State.DO:
+                    self._apply_do(sessid, txn)
+                elif self.state == self.State.UNDO:
+                    self._apply_undo(sessid, txn)
+                else:
+                    assert 0, "Invalid action state"
+
+                # FIXME: turn on line
+                #journal().apply_action(self, sessid, txn)
+
+            print 'calling callback'
+            act_defer.callback((self, sessid))
+
+        except (AssertionError, ActionError) as e:
+            print 'calling errback'
+            act_defer.errback(e)
 
     def _apply_do(self, sessid, txn):
-        raise NotImplementedError("do action not implemented")
+        print 'in apply do'
+        assert 0, "Do action not implemented"
 
     def _apply_undo(self, sessid, txn):
-        raise NotImplementedError("undo action not implemented")
+        print 'in apply undo'
+        assert 0, "Undo action not implemented"
+
+    def _get_lock_resources(self):
+        """
+        Method should return list of lock strings to acquire
+        in given order before applying action.
+        Action class may override this method to use
+        own list.
+        """
+        return []
+
+    def _acquire_locks(self, sessid):
+        print 'acquire locks'
+        defers = []
+        lock_objs = []
+        resources = self._get_lock_resources()
+        for resource in resources:
+            lck = lock.manager().lock(resource, sessid)
+            lock_objs.append(lck)
+
+            deferred = lck.acquire()
+            defers.append(deferred)
+
+        dl = defer.DeferredList(defers, consumeErrors=True,
+                                fireOnOneErrback=True)
+        return (dl, lock_objs)
+
+    def _acquire_locks_eb(self, failure, lock_objs, act_defer):
+        print 'acquire locks errback'
+        lock_names = ", ".join([lck.resource() for lck in lock_objs])
+        msg = "Unable to acquire locks '{0}' for action '{1}'".format(
+                                   lock_names, self.__class__.__name__)
+        log.err(msg)
+
+        self._release_locks(lock_objs)
+        act_defer.errback(ActionError(msg))
+
+    def _release_locks_cb(self, res, lock_objs):
+        print 'release locks callback'
+        self._release_locks(lock_objs)
+        return res
+
+    def _release_locks_eb(self, failure, lock_objs):
+        print 'release locks errback'
+        self._release_locks(lock_objs)
+        # forward failure to further errbacks
+        return failure
+
+    def _release_locks(self, lock_objs):
+        for lck in lock_objs:
+            if lck.is_locked():
+                lck.release()
 
 
 @singleton

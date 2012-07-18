@@ -23,13 +23,10 @@ class AddArena(Action):
         super(self.__class__, self).__init__(state)
         self.arena_name = arena_name
 
-    def _apply_do(self, sessid, txn):
-        lck = lock.context().lock(self.arena_name, sessid)
-        defer = lck.acquire()
-        defer.addCallback(self._apply_do_cb, txn, lck)
-        defer.addErrback(self._apply_do_errb, lck)
+    def _get_lock_resources(self):
+        return [ "arena_" + self.arena_name ]
 
-    def _apply_do_cb(self, lock_res, txn, lck):
+    def _apply_do(self, sessid, txn):
         adb = database.context().dbpool().arena.open()
         if not adb.exists(self.arena_name, txn):
             adb.put(self.arena_name, '', txn)
@@ -38,20 +35,8 @@ class AddArena(Action):
                               "arena already exists".format(
                                             self.arena_name))
         adb.close()
-        lck.release()
-
-    def _apply_do_errb(self, failure, lck):
-        lck.release()
-        raise ActionError("unable to add arena '{0}': " + str(failure))
-
 
     def _apply_undo(self, sessid, txn):
-        lck = lock.context().lock(self.arena_name, sessid)
-        defer = lck.acquire()
-        defer.addCallback(self._apply_undo_cb, txn, lck)
-        defer.addErrback(self._apply_undo_errb, lck)
-
-    def _apply_undo_cb(self, lock_res, txn, lck):
         adb = database.context().dbpool().arena.open()
         asdb = database.context().dbpool().arena_segment.open()
 
@@ -69,11 +54,6 @@ class AddArena(Action):
 
         adb.close()
         asdb.close()
-        lck.release()
-
-    def _apply_undo_errb(self, failure, lck):
-        lck.release()
-        raise ActionError("unable to delete arena '{0}': " + str(failure))
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

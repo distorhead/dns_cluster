@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 
 from lib import database
-from lib import lock
 from lib.action import Action, ActionError
 
 
@@ -23,10 +22,7 @@ class AddArena(Action):
         super(self.__class__, self).__init__(state)
         self.arena_name = arena_name
 
-    def _get_lock_resources(self):
-        return [ "arena_" + self.arena_name ]
-
-    def _apply_do(self, sessid, txn):
+    def _apply_do(self, txn):
         adb = database.context().dbpool().arena.open()
         if not adb.exists(self.arena_name, txn):
             adb.put(self.arena_name, '', txn)
@@ -36,7 +32,7 @@ class AddArena(Action):
                                             self.arena_name))
         adb.close()
 
-    def _apply_undo(self, sessid, txn):
+    def _apply_undo(self, txn):
         adb = database.context().dbpool().arena.open()
         asdb = database.context().dbpool().arena_segment.open()
 

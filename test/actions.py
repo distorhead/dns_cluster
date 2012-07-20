@@ -1,20 +1,8 @@
-from lock import *
-from lib.action import *
-from lib.actions import *
+from context import *
+from lib.actions.add_arena import AddArena
+from lib.actions.add_segment import AddSegment
+from lib.actions.add_zone import AddZone
 
-arena_act = add_arena.AddArena('myarena')
-
-
-def cb(res):
-    print '-- SUCCESS:', res
-
-
-def eb(failure):
-    print '-- ERROR:', failure
-
-
-def apply(act, sessid):
-    d = act.apply(sessid)
-    d.addCallback(cb)
-    d.addErrback(eb)
-
+a = AddArena('myarena')
+s = AddSegment('myarena', 'mysegm')
+z = AddZone('myarena', 'mysegm', 'myzone')

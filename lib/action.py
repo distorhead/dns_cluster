@@ -2,7 +2,6 @@
 
 from bsddb3 import db
 from bson import BSON
-from exceptions import NotImplementedError
 from twisted.python import log
 from twisted.internet import defer
 

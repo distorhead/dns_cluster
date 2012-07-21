@@ -103,14 +103,23 @@ class Database(object):
 
         return db
 
-    @classmethod
-    def sequence(cls, db, txn=None, initial=None):
-        dbseq = bdb.DBSequence(db)
+    def sequence(self, seqkey=None, **kwargs):
+        txn = kwargs.get("txn", None)
+        initial = kwargs.get("initial", None)
+        dbhandle = kwargs.get("dbhandle", None)
+
+        if seqkey is None:
+            seqkey = self.SEQUENCE_KEY
+
+        if dbhandle is None:
+            dbhandle = self.open()
+
+        dbseq = bdb.DBSequence(dbhandle)
 
         if not initial is None:
             dbseq.initial_value(initial)
 
-        dbseq.open(cls.SEQUENCE_KEY, txn, cls.SEQUENCE_FLAGS)
+        dbseq.open(seqkey, txn, self.SEQUENCE_FLAGS)
         return dbseq
 
 
@@ -128,10 +137,9 @@ class DatabasePool(object):
                               databases_spec[dbname]["open_flags"])
             setattr(self, dbname, dbdesc)
 
-            if databases_spec[dbname].get("autoincrement", False):
-                db = dbdesc.open()
-                Database.sequence(db, None, 0)
-                db.close()
+            seq_spec = databases_spec[dbname].get("seq_spec", {})
+            for seq_name in seq_spec:
+                dbdesc.sequence(seq_name, initial=seq_spec[seq_name])
 
 
 @singleton
@@ -206,6 +214,12 @@ class context:
             "type": bdb.DB_BTREE,
             "flags": bdb.DB_DUP|bdb.DB_DUPSORT,
             "open_flags": bdb.DB_CREATE
+        },
+        "sequence": {
+            "type": bdb.DB_HASH,
+            "flags": 0,
+            "open_flags": bdb.DB_CREATE,
+            "seq_spec": {"dns_data": 1}
         }
     }
 

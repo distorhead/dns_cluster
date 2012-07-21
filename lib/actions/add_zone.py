@@ -16,11 +16,11 @@ class AddZone(Action):
 
         if not data.has_key("segment_name"):
             raise ActionError("unable to construct action: "
-                              "wrong action data: arena_name required")
+                              "wrong action data: segment_name required")
 
         if not data.has_key("zone_name"):
             raise ActionError("unable to construct action: "
-                              "wrong action data: arena_name required")
+                              "wrong action data: zone_name required")
 
         if not data.has_key("state"):
             raise ActionError("unable to construct action: "

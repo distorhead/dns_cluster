@@ -176,19 +176,19 @@ class journal(object):
             "type": database.bdb.DB_HASH,
             "flags": 0,
             "open_flags": database.bdb.DB_CREATE,
-            "autoincrement": 1
+            "hasseq": 1
         },
         "action": {
             "type": database.bdb.DB_BTREE,
             "flags": 0,
             "open_flags": database.bdb.DB_CREATE,
-            "autoincrement": 1
+            "hasseq": 1
         },
         "session_action": {
             "type": database.bdb.DB_BTREE,
             "flags": database.bdb.DB_DUP | database.bdb.DB_DUPSORT,
             "open_flags": database.bdb.DB_CREATE,
-            "autoincrement": 0
+            "hasseq": 0
         }
     }
 

@@ -32,4 +32,10 @@ def reorder(s):
     return res
 
 
+def required_kwarg(kwargs, argname, err):
+    if not kwargs.has_key(argname):
+        raise err("{0} kwarg required".format(argname))
+    return kwargs[argname]
+
+
 # vim:sts=4:ts=4:sw=4:expandtab:

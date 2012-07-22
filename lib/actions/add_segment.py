@@ -27,7 +27,7 @@ class AddSegment(Action):
                           "[arena:'{arena}']: {reason}")
 
     def __init__(self, arena_name, segment_name, state=None):
-        super(self.__class__, self).__init__(state)
+        super(AddSegment, self).__init__(state)
         self.arena_name = arena_name
         self.segment_name = segment_name
 

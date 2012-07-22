@@ -19,7 +19,7 @@ class AddArena(Action):
         return cls(str(data["arena_name"]), data["state"])
 
     def __init__(self, arena_name, state=None):
-        super(self.__class__, self).__init__(state)
+        super(AddArena, self).__init__(state)
         self.arena_name = arena_name
 
     def _apply_do(self, txn):

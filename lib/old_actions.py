@@ -4,7 +4,6 @@
 
 
 
-class AddRecord_PTR(Action): pass
 class AddRecord_CNAME(Action): pass
 class AddRecord_DNAME(Action): pass
 class AddRecord_SOA(Action): pass

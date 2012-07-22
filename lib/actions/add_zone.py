@@ -18,9 +18,9 @@ class AddZone(Action):
             raise ActionError("unable to construct action: "
                               "wrong action data: segment_name required")
 
-        if not data.has_key("zone_name"):
+        if not data.has_key("zone"):
             raise ActionError("unable to construct action: "
-                              "wrong action data: zone_name required")
+                              "wrong action data: zone required")
 
         if not data.has_key("state"):
             raise ActionError("unable to construct action: "
@@ -28,17 +28,17 @@ class AddZone(Action):
 
         return cls(str(data["arena_name"]),
                    str(data["segment_name"]),
-                   str(data["zone_name"]),
+                   str(data["zone"]),
                    data["state"])
 
     ERROR_MSG_TEMPLATE = ("unable to {action} zone '{zone}' "
                           "[arena:'{arena}', segment:'{segment}']: {reason}")
 
-    def __init__(self, arena_name, segment_name, zone_name, state=None):
-        super(self.__class__, self).__init__(state)
+    def __init__(self, arena_name, segment_name, zone, state=None):
+        super(AddZone, self).__init__(state)
         self.arena_name = arena_name
         self.segment_name = segment_name
-        self.zone_name = zone_name
+        self.zone = zone
 
     def _apply_do(self, txn):
         adb = database.context().dbpool().arena.open()
@@ -51,7 +51,7 @@ class AddZone(Action):
         self._check_arena(adb, txn, action)
         self._check_segment(asdb, txn, action)
 
-        zone_rname = reorder(self.zone_name)
+        zone_rname = reorder(self.zone)
         sz_key = self.arena_name + ' ' + self.segment_name
 
         if not zdb.exists(zone_rname, txn):
@@ -84,11 +84,11 @@ class AddZone(Action):
         self._check_arena(adb, txn, action)
         self._check_segment(asdb, txn, action)
 
-        if zddb.exists(self.zone_name, txn) or xdb.exists(self.zone_name, txn):
+        if zddb.exists(self.zone, txn) or xdb.exists(self.zone, txn):
             raise ActionError(self._make_error_msg(action,
                               "zone contains records"))
 
-        zone_rname = reorder(self.zone_name)
+        zone_rname = reorder(self.zone)
 
         if zdb.exists(zone_rname, txn):
             zdb.delete(zone_rname, txn)
@@ -121,7 +121,7 @@ class AddZone(Action):
         return self.ERROR_MSG_TEMPLATE.format(
                     arena=self.arena_name,
                     segment=self.segment_name,
-                    zone=self.zone_name,
+                    zone=self.zone,
                     action=action,
                     reason=reason
                 )

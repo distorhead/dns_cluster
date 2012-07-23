@@ -5,23 +5,23 @@ from lib.actions.add_record import AddRecord
 
 
 @Action.register_action
-class AddRecord_PTR(AddRecord):
-    ERROR_MSG_TEMPLATE = "unable to {action} PTR record {rec}: {reason}"
+class AddRecord_CNAME(AddRecord):
+    ERROR_MSG_TEMPLATE = "unable to {action} CNAME record {rec}: {reason}"
 
     def __init__(self, **kwargs):
-        super(AddRecord_PTR, self).__init__(**kwargs)
+        super(AddRecord_CNAME, self).__init__(**kwargs)
         self.host = self.required_data_by_key(kwargs, "host", str)
         self.domain = self.required_data_by_key(kwargs, "domain", str)
 
     def _apply_do(self, txn):
-        rec_data = "PTR " + self.domain
+        rec_data = "CNAME " + self.domain
         self._create_rec(txn, self.host, rec_data, True)
 
     def _apply_undo(self, txn):
         self._delete_rec(txn, self.host, True)
 
     def _is_record_equal(self, rlist):
-        if rlist[3] == "PTR" and rlist[4] == self.domain:
+        if rlist[3] == "CNAME" and rlist[4] == self.domain:
             return True
         else:
             return False

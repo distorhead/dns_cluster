@@ -7,29 +7,13 @@ from lib.action import Action, ActionError
 
 @Action.register_action
 class AddSegment(Action):
-    @classmethod
-    def from_data(cls, data):
-        if not data.has_key("arena_name"):
-            raise ActionError("unable to construct action: "
-                              "wrong action data: arena_name required")
-
-        if not data.has_key("segment_name"):
-            raise ActionError("unable to construct action: "
-                              "wrong action data: segment_name required")
-
-        if not data.has_key("state"):
-            raise ActionError("unable to construct action: "
-                              "wrong action data: state required")
-
-        return cls(str(data["arena_name"]), str(data["segment_name"]), data["state"])
-
     ERROR_MSG_TEMPLATE = ("unable to {action} segment '{segment}' "
                           "[arena:'{arena}']: {reason}")
 
-    def __init__(self, arena_name, segment_name, state=None):
-        super(AddSegment, self).__init__(state)
-        self.arena_name = arena_name
-        self.segment_name = segment_name
+    def __init__(self, **kwargs):
+        super(AddSegment, self).__init__(**kwargs)
+        self.arena = self.required_data_by_key(kwargs, "arena", str)
+        self.segment = self.required_data_by_key(kwargs, "segment", str)
 
     def _apply_do(self, txn):
         adb = database.context().dbpool().arena.open()
@@ -39,9 +23,9 @@ class AddSegment(Action):
 
         self._check_arena(adb, txn, action)
 
-        segments = bdb_helpers.get_all(asdb, self.arena_name, txn)
-        if not self.segment_name in segments:
-            asdb.put(self.arena_name, self.segment_name, txn)
+        segments = bdb_helpers.get_all(asdb, self.arena, txn)
+        if not self.segment in segments:
+            asdb.put(self.arena, self.segment, txn)
         else:
             raise ActionError(self._make_error_msg(action,
                               "segment already exists"))
@@ -58,12 +42,12 @@ class AddSegment(Action):
 
         self._check_arena(adb, txn, action)
 
-        if szdb.exists(self.arena_name + ' ' + self.segment_name, txn):
+        if szdb.exists(self.arena + ' ' + self.segment, txn):
             raise ActionError(self._make_error_msg(action,
                               "segment contains zones"))
 
-        if bdb_helpers.pair_exists(asdb, self.arena_name, self.segment_name, txn):
-            bdb_helpers.delete_pair(asdb, self.arena_name, self.segment_name, txn)
+        if bdb_helpers.pair_exists(asdb, self.arena, self.segment, txn):
+            bdb_helpers.delete_pair(asdb, self.arena, self.segment, txn)
         else:
             raise ActionError(self._make_error_msg(action,
                               "segment doesn't exist"))
@@ -73,14 +57,14 @@ class AddSegment(Action):
         szdb.close()
 
     def _check_arena(self, adb, txn, action):
-        if not adb.exists(self.arena_name, txn):
+        if not adb.exists(self.arena, txn):
             raise ActionError(self._make_error_msg(action,
                               "arena doesn't exist"))
 
     def _make_error_msg(self, action, reason):
         return self.ERROR_MSG_TEMPLATE.format(
-                    arena=self.arena_name,
-                    segment=self.segment_name,
+                    arena=self.arena,
+                    segment=self.segment,
                     action=action,
                     reason=reason
                 )

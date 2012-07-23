@@ -1,47 +1,17 @@
 # -*- coding: utf-8 -*-
 
 from lib.action import Action, ActionError
-from lib.common import required_kwarg
 from lib.actions.add_record import AddRecord
 
 
 @Action.register_action
 class AddRecord_A(AddRecord):
-    @classmethod
-    def from_data(cls, data):
-        if not data.has_key("zone"):
-            raise ActionError("unable to construct action: "
-                              "wrong action data: zone required")
+    ERROR_MSG_TEMPLATE = "unable to {action} A record {rec}: {reason}"
 
-        if not data.has_key("host"):
-            raise ActionError("unable to construct action: "
-                              "wrong action data: host required")
-
-        if not data.has_key("ip"):
-            raise ActionError("unable to construct action: "
-                              "wrong action data: ip required")
-
-        if not data.has_key("ttl"):
-            raise ActionError("unable to construct action: "
-                              "wrong action data: ttl required")
-
-        if not data.has_key("state"):
-            raise ActionError("unable to construct action: "
-                              "wrong action data: state required")
-
-        return cls(data["state"],
-                   zone=str(data["zone"]),
-                   host=str(data["host"]),
-                   ip=str(data["ip"]),
-                   ttl=int(data["ttl"]))
-
-    ERROR_MSG_TEMPLATE = "unable to {action} A record {arec}: {reason}"
-
-    def __init__(self, state=None, **kwargs):
-        super(AddRecord_A, self).__init__(state, **kwargs)
-
-        self.host = required_kwarg(kwargs, "host", ActionError)
-        self.ip = required_kwarg(kwargs, "ip", ActionError)
+    def __init__(self, **kwargs):
+        super(AddRecord_A, self).__init__(**kwargs)
+        self.host = self.required_data_by_key(kwargs, "host", str)
+        self.ip = self.required_data_by_key(kwargs, "ip", str)
 
     def _apply_do(self, txn):
         rec_data = "A " + self.ip
@@ -57,11 +27,10 @@ class AddRecord_A(AddRecord):
             return False
 
     def _make_error_msg(self, action, reason):
-        arec = "{{zone='{0}', host='{1}', ttl='{2}', ip='{3}'}}".format(
-                self.zone, self.host, self.ttl, self.ip)
+        rec = "{{zone='{0}', host='{1}', ip='{2}', ttl='{3}'}}".format(
+                self.zone, self.host, self.ip, self.ttl)
         return self.ERROR_MSG_TEMPLATE.format(
-                    arec=arec,
-                    zone=self.zone,
+                    rec=rec,
                     action=action,
                     reason=reason
                 )

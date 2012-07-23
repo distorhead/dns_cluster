@@ -3,7 +3,7 @@
 from lib import database
 from lib import bdb_helpers
 from lib.action import Action, ActionError
-from lib.common import required_kwarg, reorder
+from lib.common import reorder, split
 
 
 class AddRecord(Action):
@@ -17,11 +17,14 @@ class AddRecord(Action):
 
     TTL_DEFAULT = 100
 
-    def __init__(self, state=None, **kwargs):
-        super(AddRecord, self).__init__(state)
+    def __init__(self, **kwargs):
+        super(AddRecord, self).__init__(**kwargs)
 
-        self.zone = required_kwarg(kwargs, "zone", ActionError)
-        self.ttl = kwargs.get("ttl", self.TTL_DEFAULT)
+        self.zone = self.required_data_by_key(kwargs, "zone", str)
+        self.ttl = self.optional_data_by_key(kwargs, "ttl", int, self.TTL_DEFAULT)
+
+    def _rec_list(self, record):
+        return [item for item in self._SPLIT_REGEX.finditer(record)]
 
     def _create_rec(self, txn, host, rec_data, add_host=False):
         action = "add"
@@ -39,7 +42,7 @@ class AddRecord(Action):
 
         dkey = self.zone + ' ' + host
         for rec in bdb_helpers.get_all(ddb, dkey, txn):
-            rlist = rec.split(' ')
+            rlist = split(rec)
             if self._is_record_equal(rlist):
                 raise ActionError(self._make_error_msg(action,
                                   "record already exist"))
@@ -68,7 +71,7 @@ class AddRecord(Action):
         found = False
         dkey = self.zone + ' ' + host
         for rec in bdb_helpers.get_all(ddb, dkey, txn):
-            rlist = rec.split(' ')
+            rlist = split(rec)
             if self._is_record_equal(rlist):
                 found = True
                 bdb_helpers.delete_pair(ddb, dkey, rec, txn)

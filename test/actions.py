@@ -57,6 +57,11 @@ def apply_all():
         apply(act)
 
 def invert_all():
-    for act in all:
+    global all
+    old = [item for item in reversed(all)]
+    i = 0
+    for act in old:
         act.invert()
+        all[i] = act
+        i += 1
 

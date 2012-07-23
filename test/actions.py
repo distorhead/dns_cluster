@@ -1,4 +1,5 @@
 from context import *
+from lib import action
 from lib.actions.add_arena import AddArena
 from lib.actions.add_segment import AddSegment
 from lib.actions.add_zone import AddZone
@@ -12,7 +13,8 @@ from lib.actions.add_record_mx import AddRecord_MX
 from lib.actions.add_record_srv import AddRecord_SRV
 from lib.actions.add_record_txt import AddRecord_TXT
 
-import fixture
+
+jadb = action.journal().dbpool().action.open()
 
 
 a = AddArena(arena='myarena1')
@@ -51,6 +53,7 @@ all = [a, s, z1, z1s, ra, rc, z2, rp, z3, rd, ns, mx, srv, txt]
 def apply(act):
     with database.context().transaction() as txn:
         act.apply(txn)
+        action.journal().record_action(act, txn)
 
 def apply_all():
     for act in all:

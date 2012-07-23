@@ -48,7 +48,9 @@ class AddRecord(Action):
                                   "record already exist"))
 
         seq = database.context().dbpool().sequence.sequence("dns_data")
-        newid = seq.get()
+        newid = seq.get(1, txn)
+        seq.close()
+
         raw_rec = " ".join([str(newid), "@", str(self.ttl), rec_data])
         ddb.put(dkey, raw_rec, txn)
 

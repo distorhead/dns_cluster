@@ -2,7 +2,8 @@
 
 from bson import BSON
 
-from lib.common import required_key, required_type
+from lib import database
+from lib.common import required_key, required_type, singleton
 
 
 class ActionError(Exception): pass
@@ -85,6 +86,42 @@ class Action(object):
 
     def _apply_undo(self, txn):
         assert 0, "Action undo part is not implemented"
+
+
+@singleton
+class journal(object):
+    """
+    Class used to manage journal records
+    and control sessions.
+    """
+
+    DATABASES = {
+        "action": {
+            "type": database.bdb.DB_BTREE,
+            "flags": 0,
+            "open_flags": database.bdb.DB_CREATE
+        }
+    }
+
+    def __init__(self, *args, **kwargs):
+        self._dbpool = database.DatabasePool(self.DATABASES,
+                                             database.context().dbenv(),
+                                             database.context().dbfile())
+
+    def dbpool(self):
+        return self._dbpool
+
+    def record_action(self, act, txn):
+        adb = self.dbpool().action.open()
+
+        seq = self.dbpool().action.sequence()
+        newid = seq.get(1, txn)
+        seq.close()
+
+        dump = act.serialize()
+        adb.put(str(newid), dump, txn)
+
+        adb.close()
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

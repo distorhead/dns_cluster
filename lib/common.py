@@ -8,7 +8,7 @@ def _make_split():
     def split(s):
         """
         Split given string by whitespaces.
-        Content in double qoutes considered as a signle token.
+        Content in double qoutes considered as a single token.
         """
         return [item.group() for item in regex.finditer(s)]
 

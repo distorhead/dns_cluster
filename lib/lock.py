@@ -69,7 +69,7 @@ class Lock(object):
         return self._sessid
 
 
-@ServiceProvider.register("lock")
+@ServiceProvider.register("lock", deps=["database"])
 class manager(object):
     """
     Class used to manage resorces locks.
@@ -95,10 +95,11 @@ class manager(object):
         }
     }
 
-    def __init__(self):
+    def __init__(self, sp, *args, **kwargs):
+        self._database = sp.get("database")
         self._dbpool = database.DatabasePool(self.DATABASES,
-                                             database.context().dbenv(),
-                                             database.context().dbfile())
+                                             self._database.dbenv(),
+                                             self._database.dbfile())
 
     def lock(self, resource, sessid, timeout=None):
         return Lock(resource, sessid, timeout, self)
@@ -113,7 +114,7 @@ class manager(object):
         ldb = self.dbpool().lock.open()
         lhdb = self.dbpool().lock_hier.open()
 
-        with database.context().transaction() as txn:
+        def do_delete():
             def deleter(res):
                 print "deleting '{0} -> {1}'".format(res, resource)
                 bdb_helpers.delete_pair(lhdb, res, resource, txn)
@@ -122,6 +123,22 @@ class manager(object):
             self._for_each_resource(resource_list[:-1], deleter)
 
             bdb_helpers.delete(ldb, resource, txn)
+
+        with self._database.transaction() as txn:
+            if ldb.exists(resource, txn):
+                rec = ldb.get(resource, txn)
+                rec_list = rec.split(self.RECORD_DELIMITER)
+
+                if len(rec_list) == 2:
+                    count = self._to_int(rec_list[1])
+                    if count > 1:
+                        rec_list[1] = str(count - 1)
+                        rec = self.RECORD_DELIMITER.join(rec_list)
+                        ldb.put(resource, rec, txn)
+                    else:
+                        do_delete()
+                else:
+                    do_delete()
 
         ldb.close()
         lhdb.close()
@@ -139,7 +156,7 @@ class manager(object):
             ldb.close()
             lhdb.close()
 
-        with database.context().transaction() as txn:
+        with self._database.transaction() as txn:
             if ldb.exists(resource, txn):
                 # lock already exists
                 print "lock already exists"

@@ -3,6 +3,7 @@ from lib.service import ServiceProvider
 
 import lib.database
 import lib.action
+import lib.lock
 
 
 cfg = {

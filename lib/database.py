@@ -243,7 +243,6 @@ class context:
         atexit.register(self._terminate)
 
     def _terminate(self):
-        #TODO: print -> twisted log
         print 'terminating context'
         log.msg("Terminating database context")
         self._dbenv.close()

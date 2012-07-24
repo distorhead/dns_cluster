@@ -12,12 +12,12 @@ class AddRecord_TXT(AddRecord):
         super(AddRecord_TXT, self).__init__(**kwargs)
         self.text = self.required_data_by_key(kwargs, "text", str)
 
-    def _apply_do(self, txn):
+    def _apply_do(self, txn, database):
         rec_data = "TXT " + self._format(self.text)
-        self._create_rec(txn, "@", rec_data, False)
+        self._create_rec(txn, database, "@", rec_data, False)
 
-    def _apply_undo(self, txn):
-        self._delete_rec(txn, "@", False)
+    def _apply_undo(self, txn, database):
+        self._delete_rec(txn, database, "@", False)
 
     def _is_record_equal(self, rlist):
         if rlist[3] == "TXT" and rlist[4] == self._format(self.text):

@@ -5,7 +5,7 @@ from twisted.internet import reactor, defer
 
 from lib import database
 from lib import bdb_helpers
-from lib.common import singleton
+from lib.service import ServiceProvider
 
 
 class LockError(Exception): pass
@@ -17,12 +17,13 @@ class Lock(object):
     interface and context manager support.
     """
 
-    def __init__(self, resource, sessid, timeout):
+    def __init__(self, resource, sessid, timeout, lock_manager):
         self._resource = resource
         self._sessid = sessid
         self._timeout = timeout
         self._used = False
         self._locked = False
+        self._lock_manager = lock_manager
 
     def _check_used(self):
         if self._used:
@@ -39,7 +40,7 @@ class Lock(object):
         if self._locked:
             raise LockError("Lock is already acquired")
 
-        res = manager().acquire(self._resource,
+        res = self._lock_manager.acquire(self._resource,
                 self._sessid, self._timeout)
         self._locked = True
         return res
@@ -49,7 +50,7 @@ class Lock(object):
         if not self._locked:
             raise LockError("Lock is not acquired")
 
-        manager().release(self._resource)
+        self._lock_manager.release(self._resource)
         self._used = True
 
     def is_locked(self):
@@ -68,7 +69,7 @@ class Lock(object):
         return self._sessid
 
 
-@singleton
+@ServiceProvider.register("lock")
 class manager(object):
     """
     Class used to manage resorces locks.
@@ -100,7 +101,7 @@ class manager(object):
                                              database.context().dbfile())
 
     def lock(self, resource, sessid, timeout=None):
-        return Lock(resource, sessid, timeout)
+        return Lock(resource, sessid, timeout, self)
 
     def acquire(self, resource, sessid, timeout=None):
         if timeout is None:

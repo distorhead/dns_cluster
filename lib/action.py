@@ -3,7 +3,8 @@
 from bson import BSON
 
 from lib import database
-from lib.common import required_key, required_type, singleton
+from lib.common import required_key, required_type
+from lib.service import ServiceProvider
 
 
 class ActionError(Exception): pass
@@ -73,26 +74,25 @@ class Action(object):
     def invert(self):
         self.state ^= 1
 
-    def apply(self, txn):
+    def apply(self, txn, database):
         if self.state == self.State.DO:
-            self._apply_do(txn)
+            self._apply_do(txn, database)
         elif self.state == self.State.UNDO:
-            self._apply_undo(txn)
+            self._apply_undo(txn, database)
         else:
             assert 0, "Invalid action state"
 
-    def _apply_do(self, txn):
+    def _apply_do(self, txn, database):
         assert 0, "Action do part is not implemented"
 
-    def _apply_undo(self, txn):
+    def _apply_undo(self, txn, database):
         assert 0, "Action undo part is not implemented"
 
 
-@singleton
+@ServiceProvider.register("action_journal", deps=["database"])
 class journal(object):
     """
-    Class used to manage journal records
-    and control sessions.
+    Class used to manage journal records.
     """
 
     DATABASES = {
@@ -103,10 +103,11 @@ class journal(object):
         }
     }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, sp, *args, **kwargs):
+        db = sp.get("database")
         self._dbpool = database.DatabasePool(self.DATABASES,
-                                             database.context().dbenv(),
-                                             database.context().dbfile())
+                                             db.dbenv(),
+                                             db.dbfile())
 
     def dbpool(self):
         return self._dbpool

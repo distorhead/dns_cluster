@@ -15,9 +15,9 @@ class AddSegment(Action):
         self.arena = self.required_data_by_key(kwargs, "arena", str)
         self.segment = self.required_data_by_key(kwargs, "segment", str)
 
-    def _apply_do(self, txn):
-        adb = database.context().dbpool().arena.open()
-        asdb = database.context().dbpool().arena_segment.open()
+    def _apply_do(self, txn, database):
+        adb = database.dbpool().arena.open()
+        asdb = database.dbpool().arena_segment.open()
 
         action = "add"
 
@@ -33,10 +33,10 @@ class AddSegment(Action):
         adb.close()
         asdb.close()
 
-    def _apply_undo(self, txn):
-        adb = database.context().dbpool().arena.open()
-        asdb = database.context().dbpool().arena_segment.open()
-        szdb = database.context().dbpool().segment_zone.open()
+    def _apply_undo(self, txn, database):
+        adb = database.dbpool().arena.open()
+        asdb = database.dbpool().arena_segment.open()
+        szdb = database.dbpool().segment_zone.open()
 
         action= "delete"
 

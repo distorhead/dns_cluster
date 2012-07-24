@@ -14,7 +14,8 @@ from lib.actions.add_record_srv import AddRecord_SRV
 from lib.actions.add_record_txt import AddRecord_TXT
 
 
-jadb = action.journal().dbpool().action.open()
+action_journal = sp.get("action_journal")
+jadb = action_journal.dbpool().action.open()
 
 
 a = AddArena(arena='myarena1')
@@ -45,15 +46,15 @@ rd = AddRecord_DNAME(zone='link', zone_dst='fffuuuuu.')
 ns = AddRecord_NS(zone='myzone1', domain='myns.myzone1.')
 mx = AddRecord_MX(zone='myzone1', domain='mail.myzone1.', priority=50)
 srv = AddRecord_SRV(zone='myzone1', service='_sip._tcp', port=123, domain='ololo.myzone1.')
-txt = AddRecord_TXT(zone='myzone1', text='This is the first txt record of this zone. Nothing more.')
+txt = AddRecord_TXT(zone='myzone1', text='This is the first txt record of this zone.')
 
 
 all = [a, s, z1, z1s, ra, rc, z2, rp, z3, rd, ns, mx, srv, txt]
 
 def apply(act):
-    with database.context().transaction() as txn:
-        act.apply(txn)
-        action.journal().record_action(act, txn)
+    with database.transaction() as txn:
+        act.apply(txn, database)
+        action_journal.record_action(act, txn)
 
 def apply_all():
     for act in all:

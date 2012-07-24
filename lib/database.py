@@ -5,7 +5,7 @@ import atexit
 from bsddb3 import db as bdb
 from twisted.python import log
 
-from common import singleton
+from lib.service import ServiceProvider
 
 
 class TransactionError(Exception): pass
@@ -142,7 +142,7 @@ class DatabasePool(object):
                 dbdesc.sequence(seq_name, initial=seq_spec[seq_name])
 
 
-@singleton
+@ServiceProvider.register("database")
 class context:
     DATABASES = {
         "arena": {
@@ -157,7 +157,7 @@ class context:
         },
         "segment_zone": {
             "type": bdb.DB_BTREE,
-            "flags": 0,
+            "flags": bdb.DB_DUP|bdb.DB_DUPSORT,
             "open_flags": bdb.DB_CREATE
         },
         "segment_zone_inactive": {

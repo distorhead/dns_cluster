@@ -26,19 +26,19 @@ class AddRecord(Action):
     def _rec_list(self, record):
         return [item for item in self._SPLIT_REGEX.finditer(record)]
 
-    def _create_rec(self, txn, host, rec_data, add_host=False):
+    def _create_rec(self, txn, database, host, rec_data, add_host=False):
         action = "add"
 
-        zdb = database.context().dbpool().dns_zone.open()
+        zdb = database.dbpool().dns_zone.open()
         self._check_zone(zdb, txn, action)
         zdb.close()
 
         if add_host:
-            xdb = database.context().dbpool().dns_xfr.open()
+            xdb = database.dbpool().dns_xfr.open()
             self._add_host(xdb, txn, host)
             xdb.close()
 
-        ddb = database.context().dbpool().dns_data.open()
+        ddb = database.dbpool().dns_data.open()
 
         dkey = self.zone + ' ' + host
         for rec in bdb_helpers.get_all(ddb, dkey, txn):
@@ -47,7 +47,7 @@ class AddRecord(Action):
                 raise ActionError(self._make_error_msg(action,
                                   "record already exist"))
 
-        seq = database.context().dbpool().sequence.sequence("dns_data")
+        seq = database.dbpool().sequence.sequence("dns_data")
         newid = seq.get(1, txn)
         seq.close()
 
@@ -56,19 +56,19 @@ class AddRecord(Action):
 
         ddb.close()
 
-    def _delete_rec(self, txn, host, del_host=False):
+    def _delete_rec(self, txn, database, host, del_host=False):
         action = "delete"
 
-        zdb = database.context().dbpool().dns_zone.open()
+        zdb = database.dbpool().dns_zone.open()
         self._check_zone(zdb, txn, action)
         zdb.close()
 
         if del_host:
-            xdb = database.context().dbpool().dns_xfr.open()
+            xdb = database.dbpool().dns_xfr.open()
             self._del_host(xdb, txn, host)
             xdb.close()
 
-        ddb = database.context().dbpool().dns_data.open()
+        ddb = database.dbpool().dns_data.open()
 
         found = False
         dkey = self.zone + ' ' + host

@@ -13,12 +13,12 @@ class AddRecord_A(AddRecord):
         self.host = self.required_data_by_key(kwargs, "host", str)
         self.ip = self.required_data_by_key(kwargs, "ip", str)
 
-    def _apply_do(self, txn):
+    def _apply_do(self, txn, database):
         rec_data = "A " + self.ip
-        self._create_rec(txn, self.host, rec_data, True)
+        self._create_rec(txn, database, self.host, rec_data, True)
 
-    def _apply_undo(self, txn):
-        self._delete_rec(txn, self.host, True)
+    def _apply_undo(self, txn, database):
+        self._delete_rec(txn, database, self.host, True)
 
     def _is_record_equal(self, rlist):
         if rlist[3] == "A" and rlist[4] == self.ip:

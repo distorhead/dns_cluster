@@ -18,15 +18,15 @@ class AddRecord_SOA(AddRecord):
         self.expire = self.required_data_by_key(kwargs, "expire", int)
         self.minimum = self.required_data_by_key(kwargs, "minimum", int)
 
-    def _apply_do(self, txn):
+    def _apply_do(self, txn, database):
         rec_data = " ".join([str(token) for token in
                                 ["SOA", self.primary_ns, self.resp_person,
                                  self.serial, self.refresh, self.retry,
                                  self.expire, self.minimum]])
-        self._create_rec(txn, "@", rec_data, False)
+        self._create_rec(txn, database, "@", rec_data, False)
 
-    def _apply_undo(self, txn):
-        self._delete_rec(txn, "@", False)
+    def _apply_undo(self, txn, database):
+        self._delete_rec(txn, database, "@", False)
 
     def _is_record_equal(self, rlist):
         if rlist[3] == "SOA":

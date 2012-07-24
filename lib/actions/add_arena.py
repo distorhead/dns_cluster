@@ -10,8 +10,8 @@ class AddArena(Action):
         super(AddArena, self).__init__(**kwargs)
         self.arena = self.required_data_by_key(kwargs, "arena", str)
 
-    def _apply_do(self, txn):
-        adb = database.context().dbpool().arena.open()
+    def _apply_do(self, txn, database):
+        adb = database.dbpool().arena.open()
         if not adb.exists(self.arena, txn):
             adb.put(self.arena, '', txn)
         else:
@@ -20,9 +20,9 @@ class AddArena(Action):
                                             self.arena))
         adb.close()
 
-    def _apply_undo(self, txn):
-        adb = database.context().dbpool().arena.open()
-        asdb = database.context().dbpool().arena_segment.open()
+    def _apply_undo(self, txn, database):
+        adb = database.dbpool().arena.open()
+        asdb = database.dbpool().arena_segment.open()
 
         if asdb.exists(self.arena, txn):
             raise ActionError("unable to delete arena '{0}': "

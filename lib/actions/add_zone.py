@@ -17,11 +17,11 @@ class AddZone(Action):
         self.segment = self.required_data_by_key(kwargs, "segment", str)
         self.zone = self.required_data_by_key(kwargs, "zone", str)
 
-    def _apply_do(self, txn):
-        adb = database.context().dbpool().arena.open()
-        asdb = database.context().dbpool().arena_segment.open()
-        szdb = database.context().dbpool().segment_zone.open()
-        zdb = database.context().dbpool().dns_zone.open()
+    def _apply_do(self, txn, database):
+        adb = database.dbpool().arena.open()
+        asdb = database.dbpool().arena_segment.open()
+        szdb = database.dbpool().segment_zone.open()
+        zdb = database.dbpool().dns_zone.open()
 
         action = "add"
 
@@ -48,13 +48,13 @@ class AddZone(Action):
         szdb.close()
         zdb.close()
 
-    def _apply_undo(self, txn):
-        adb = database.context().dbpool().arena.open()
-        asdb = database.context().dbpool().arena_segment.open()
-        zdb = database.context().dbpool().dns_zone.open()
-        xdb = database.context().dbpool().dns_xfr.open()
-        zddb = database.context().dbpool().zone_dns_data.open()
-        szdb = database.context().dbpool().segment_zone.open()
+    def _apply_undo(self, txn, database):
+        adb = database.dbpool().arena.open()
+        asdb = database.dbpool().arena_segment.open()
+        zdb = database.dbpool().dns_zone.open()
+        xdb = database.dbpool().dns_xfr.open()
+        zddb = database.dbpool().zone_dns_data.open()
+        szdb = database.dbpool().segment_zone.open()
 
         action = "delete"
 

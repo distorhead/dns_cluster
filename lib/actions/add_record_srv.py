@@ -21,14 +21,14 @@ class AddRecord_SRV(AddRecord):
         self.service = self.required_data_by_key(kwargs, "service", str)
         self.domain = self.required_data_by_key(kwargs, "domain", str)
 
-    def _apply_do(self, txn):
+    def _apply_do(self, txn, database):
         rec_data = " ".join([str(token) for token in
                             ["SRV", self.priority, self.weight, 
                              self.port, self.domain]])
-        self._create_rec(txn, self.service, rec_data, False)
+        self._create_rec(txn, database, self.service, rec_data, False)
 
-    def _apply_undo(self, txn):
-        self._delete_rec(txn, self.service, False)
+    def _apply_undo(self, txn, database):
+        self._delete_rec(txn, database, self.service, False)
 
     def _is_record_equal(self, rlist):
         if (rlist[3] == "SRV" and

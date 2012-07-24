@@ -15,13 +15,13 @@ class AddRecord_MX(AddRecord):
         self.priority = self.optional_data_by_key(kwargs, "priority", int,
                                                   self.PRIORITY_DEFAULT)
 
-    def _apply_do(self, txn):
+    def _apply_do(self, txn, database):
         rec_data = " ".join([str(token) for token in
                             ["MX", self.priority, self.domain]])
-        self._create_rec(txn, "@", rec_data, False)
+        self._create_rec(txn, database, "@", rec_data, False)
 
-    def _apply_undo(self, txn):
-        self._delete_rec(txn, "@", False)
+    def _apply_undo(self, txn, database):
+        self._delete_rec(txn, database, "@", False)
 
     def _is_record_equal(self, rlist):
         if rlist[3] == "MX" and rlist[5] == self.domain:

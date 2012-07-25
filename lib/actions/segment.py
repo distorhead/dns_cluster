@@ -62,12 +62,20 @@ class AddSegment(Action):
                               "arena doesn't exist"))
 
     def _make_error_msg(self, action, reason):
-        return self.ERROR_MSG_TEMPLATE.format(
-                    arena=self.arena,
+        return self.ERROR_MSG_TEMPLATE.format( arena=self.arena,
                     segment=self.segment,
                     action=action,
                     reason=reason
                 )
+
+
+def add_action(**kwargs):
+    kwargs["state"] = Action.State.DO
+    return AddSegment(**kwargs)
+
+def del_action(**kwargs):
+    kwargs["state"] = Action.State.UNDO
+    return AddSegment(**kwargs)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

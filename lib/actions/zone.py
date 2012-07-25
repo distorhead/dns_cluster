@@ -104,4 +104,13 @@ class AddZone(Action):
                 )
 
 
+def add_action(**kwargs):
+    kwargs["state"] = Action.State.DO
+    return AddZone(**kwargs)
+
+def del_action(**kwargs):
+    kwargs["state"] = Action.State.UNDO
+    return AddZone(**kwargs)
+
+
 # vim:sts=4:ts=4:sw=4:expandtab:

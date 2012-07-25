@@ -1,52 +1,41 @@
 from context import *
 from lib import action
-from lib.actions.add_arena import AddArena
-from lib.actions.add_segment import AddSegment
-from lib.actions.add_zone import AddZone
-from lib.actions.add_record_a import AddRecord_A
-from lib.actions.add_record_ptr import AddRecord_PTR
-from lib.actions.add_record_cname import AddRecord_CNAME
-from lib.actions.add_record_dname import AddRecord_DNAME
-from lib.actions.add_record_soa import AddRecord_SOA
-from lib.actions.add_record_ns import AddRecord_NS
-from lib.actions.add_record_mx import AddRecord_MX
-from lib.actions.add_record_srv import AddRecord_SRV
-from lib.actions.add_record_txt import AddRecord_TXT
+from lib.actions import *
 
 
 action_journal = sp.get("action_journal")
 jadb = action_journal.dbpool().action.open()
 
 
-a = AddArena(arena='myarena1')
-s = AddSegment(arena='myarena1', segment='mysegm1')
+a = arena.add_action(arena='myarena1')
+s = segment.add_action(arena='myarena1', segment='mysegm1')
 
-z1 = AddZone(arena='myarena1', segment='mysegm1',
+z1 = zone.add_action(arena='myarena1', segment='mysegm1',
              zone='myzone1')
 
-z1s = AddRecord_SOA(zone='myzone1', primary_ns='myns.myzone1.',
+z1s = record_soa.add_action(zone='myzone1', primary_ns='myns.myzone1.',
                     resp_person='root.myzone1.', serial=2, refresh=2800,
                     retry=7200, expire=604800, minimum=86400)
 
-ra = AddRecord_A(zone='myzone1', host='somedomain',
+ra = record_a.add_action(zone='myzone1', host='somedomain',
                  ip='192.168.100.200', ttl=300)
 
-rc = AddRecord_CNAME(zone='myzone1', host='link',
+rc = record_cname.add_action(zone='myzone1', host='link',
                      domain='somedomain.myzone1.', ttl=300)
 
-z2 = AddZone(arena='myarena1', segment='mysegm1', zone='1.in-addr.arpa')
-rp = AddRecord_PTR(zone='1.in-addr.arpa', host='4.3.2',
+z2 = zone.add_action(arena='myarena1', segment='mysegm1', zone='1.in-addr.arpa')
+rp = record_ptr.add_action(zone='1.in-addr.arpa', host='4.3.2',
                    domain='foo.myzone.', ttl=300)
 
 
-z3 = AddZone(arena='myarena1', segment='mysegm1',
+z3 = zone.add_action(arena='myarena1', segment='mysegm1',
              zone='link')
-rd = AddRecord_DNAME(zone='link', zone_dst='fffuuuuu.')
+rd = record_dname.add_action(zone='link', zone_dst='fffuuuuu.')
 
-ns = AddRecord_NS(zone='myzone1', domain='myns.myzone1.')
-mx = AddRecord_MX(zone='myzone1', domain='mail.myzone1.', priority=50)
-srv = AddRecord_SRV(zone='myzone1', service='_sip._tcp', port=123, domain='ololo.myzone1.')
-txt = AddRecord_TXT(zone='myzone1', text='This is the first txt record of this zone.')
+ns = record_ns.add_action(zone='myzone1', domain='myns.myzone1.')
+mx = record_mx.add_action(zone='myzone1', domain='mail.myzone1.', priority=50)
+srv = record_srv.add_action(zone='myzone1', service='_sip._tcp', port=123, domain='ololo.myzone1.')
+txt = record_txt.add_action(zone='myzone1', text='This is the first txt record of this zone.')
 
 
 all = [a, s, z1, z1s, ra, rc, z2, rp, z3, rd, ns, mx, srv, txt]

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from lib.action import Action, ActionError
-from lib.actions.add_record import AddRecord
+from lib.actions.record import AddRecord
 
 
 @Action.register_action
@@ -37,6 +37,15 @@ class AddRecord_MX(AddRecord):
                     action=action,
                     reason=reason
                 )
+
+
+def add_action(**kwargs):
+    kwargs["state"] = Action.State.DO
+    return AddRecord_MX(**kwargs)
+
+def del_action(**kwargs):
+    kwargs["state"] = Action.State.UNDO
+    return AddRecord_MX(**kwargs)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

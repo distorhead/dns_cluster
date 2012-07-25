@@ -40,4 +40,13 @@ class AddArena(Action):
         asdb.close()
 
 
+def add_action(**kwargs):
+    kwargs["state"] = Action.State.DO
+    return AddArena(**kwargs)
+
+def del_action(**kwargs):
+    kwargs["state"] = Action.State.UNDO
+    return AddArena(**kwargs)
+
+
 # vim:sts=4:ts=4:sw=4:expandtab:

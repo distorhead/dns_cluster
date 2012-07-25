@@ -38,6 +38,7 @@ class Action(object):
         return required_type(value, type, failure_func=cls.construction_failure,
                              failure_msg="wrong action data: bad value "
                                          "'{0}'".format(value))
+
     @classmethod
     def optional_data_by_key(cls, action_data, key, type, default):
         value = required_key(action_data, key, default=default)
@@ -62,7 +63,6 @@ class Action(object):
             "data": self.__dict__
         }
         return BSON.encode(action_data)
-
 
     class State:
         DO = 1

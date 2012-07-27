@@ -220,12 +220,17 @@ class context:
             "flags": 0,
             "open_flags": bdb.DB_CREATE,
             "seq_spec": {"dns_data": 1}
+        },
+        "dbstate": {
+            "type": bdb.DB_BTREE,
+            "flags": 0,
+            "open_flags": bdb.DB_CREATE
         }
     }
 
     ENV_FLAGS_DEFAULT = (bdb.DB_CREATE | bdb.DB_THREAD |
                          bdb.DB_INIT_MPOOL | bdb.DB_INIT_LOCK |
-                         bdb.DB_INIT_LOG | bdb.DB_INIT_TXN)
+                         bdb.DB_INIT_LOG | bdb.DB_INIT_TXN )
 
     def __init__(self, *args, **kwargs):
         self._dbenv_flags = kwargs.get("dbenv_flags", self.ENV_FLAGS_DEFAULT)

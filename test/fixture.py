@@ -5,8 +5,8 @@ adb.put('myarena', '')
 asdb.put('myarena', 'mysegm1')
 asdb.put('myarena', 'mysegm2')
 
-szdb.put('myarena mysegm1', 'enozym')
-szdb.put('myarena mysegm2', 'uuuuufff')
+szdb.put('myarena mysegm1', 'myzone')
+szdb.put('myarena mysegm2', 'fffuuuuu')
 
 zdb.put('enozym', 'myarena mysegm1')
 zdb.put('uuuuufff', 'myarena mysegm2')

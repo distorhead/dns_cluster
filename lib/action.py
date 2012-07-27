@@ -13,10 +13,13 @@ class ActionError(Exception): pass
 class Action(object):
     """
     Class represent single elementary action.
-    Action may be in {DO|UNDO} state.
     Action may be serialized/unserialized.
-    Serialized action keep its state and
-      all data it needs to perform.
+    Serialized action keep all data it needs to perform
+      and database target dbstate, to which this action
+      is applyable.
+    Subclasses should implementd following methods:
+      _current_dbstate - for retrieving current database state
+      _do_apply - for performing actual action
     """
 
     registered_actions = {}
@@ -28,7 +31,7 @@ class Action(object):
 
     @classmethod
     def construction_failure(cls, msg):
-        raise ActionError("unable to construct action: " + str(msg))
+        raise ActionError("Unable to construct action: " + str(msg))
 
     @classmethod
     def required_data_by_key(cls, action_data, key, type):
@@ -58,35 +61,38 @@ class Action(object):
         return act_cls(**data)
 
     def serialize(self):
+        name = self.__class__.__name__
+        if not self.registered_actions.has_key(name):
+            raise ActionError("Unable to serialize action: action '{0}' "
+                              "is not registered".format(name))
+
         action_data = {
-            "name": self.__class__.__name__,
+            "name": name,
             "data": self.__dict__
         }
         return BSON.encode(action_data)
 
-    class State:
-        DO = 1
-        UNDO = 0
-
     def __init__(self, **kwargs):
-        self.state = self.optional_data_by_key(kwargs, "state", int, self.State.DO)
-
-    def invert(self):
-        self.state ^= 1
+        self.dbstate = kwargs.get("dbstate", None)
 
     def apply(self, txn, database):
-        if self.state == self.State.DO:
-            self._apply_do(txn, database)
-        elif self.state == self.State.UNDO:
-            self._apply_undo(txn, database)
+        cur_dbstate = self._current_dbstate(txn, database)
+
+        if self.dbstate is None:
+            self.dbstate = cur_dbstate
+
+        if self.dbstate != cur_dbstate:
+            raise ActionError("dbstates mismatch: action target dbstate '{0}', "
+                              "current dbstate '{1}'".format(
+                              self.dbstate, cur_dbstate))
         else:
-            assert 0, "Invalid action state"
+            self._do_apply(txn, database)
 
-    def _apply_do(self, txn, database):
-        assert 0, "Action do part is not implemented"
+    def _do_apply(self, txn, database):
+        assert 0, "Action do method is not implemented"
 
-    def _apply_undo(self, txn, database):
-        assert 0, "Action undo part is not implemented"
+    def _current_dbstate(self, txn, database):
+        return self.dbstate
 
 
 @ServiceProvider.register("action_journal", deps=["database"])

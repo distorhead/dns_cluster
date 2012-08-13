@@ -75,7 +75,7 @@ class Action(object):
     def __init__(self, **kwargs):
         self.dbstate = kwargs.get("dbstate", None)
 
-    def apply(self, txn, database):
+    def apply(self, database, txn):
         cur_dbstate = self._current_dbstate(txn, database)
 
         if self.dbstate is None:
@@ -86,12 +86,12 @@ class Action(object):
                               "current dbstate '{1}'".format(
                               self.dbstate, cur_dbstate))
         else:
-            self._do_apply(txn, database)
+            self._do_apply(database, txn)
 
-    def _do_apply(self, txn, database):
+    def _do_apply(self, database, txn):
         assert 0, "Action do method is not implemented"
 
-    def _current_dbstate(self, txn, database):
+    def _current_dbstate(self, database, txn):
         return self.dbstate
 
 

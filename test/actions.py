@@ -38,4 +38,5 @@ s_add = add_action(add_segment.AddSegment(arena='myarena', segment='mysegment'))
 s_del = del_action(del_segment.DelSegment(arena='myarena', segment='mysegment'))
 z_add = add_action(add_zone.AddZone(arena='myarena', segment='mysegment', zone='myzone'))
 z_del = del_action(del_zone.DelZone(arena='myarena', segment='mysegment', zone='myzone'))
-
+ra_add = add_action(add_record_a.AddRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4', ttl=10))
+ra_del = del_action(del_record_a.DelRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4'))

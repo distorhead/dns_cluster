@@ -79,7 +79,7 @@ def keys_values(dbh, txn=None):
 
 def print_db(dbh, txn=None):
     def printer(kv):
-        print "'{0}' -> '{1}'".format(kv[0], kv[1])
+        print "{0} -> {1}".format(repr(kv[0]), repr(kv[1]))
     for_each(dbh, printer, txn)
 
 

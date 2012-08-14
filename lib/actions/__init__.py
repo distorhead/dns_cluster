@@ -4,5 +4,7 @@ __all__ = [
     "add_segment",
     "del_segment",
     "add_zone",
-    "del_zone"
+    "del_zone",
+    "add_record_a",
+    "del_record_a"
 ]

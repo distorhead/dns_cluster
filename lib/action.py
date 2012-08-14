@@ -78,15 +78,14 @@ class Action(object):
 
     def apply(self, database, txn):
         cur_dbstate = self._current_dbstate(database, txn)
-        print 'cur_dbstate =', cur_dbstate
 
         if self.dbstate is None:
             self.dbstate = cur_dbstate
 
         if self.dbstate != cur_dbstate:
-            raise ActionError("dbstates mismatch: action target dbstate '{0}', "
-                              "current dbstate '{1}'".format(
-                              self.dbstate, cur_dbstate))
+            raise ActionError("dbstates mismatch: action target dbstate {0}, "
+                              "current dbstate {1}".format(
+                              repr(self.dbstate), repr(cur_dbstate)))
         else:
             self._do_apply(database, txn)
 

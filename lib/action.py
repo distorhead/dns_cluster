@@ -80,22 +80,17 @@ class Action(object):
         return self.__class__.__name__
 
     def apply(self, database, txn):
-        try:
-            cur_dbstate = self._current_dbstate(database, txn)
+        cur_dbstate = self._current_dbstate(database, txn)
 
-            if self.dbstate is None:
-                self.dbstate = cur_dbstate
+        if (self.dbstate is None) or (self.dbstate == cur_dbstate):
+            self._do_apply(database, txn)
+        else:
+            raise ActionError("Unable to apply action '{0}': dbstates mismatch: "
+                              "action target dbstate {1}, current dbstate {2}".format(
+                              self.name(), repr(self.dbstate), repr(cur_dbstate)))
 
-            if self.dbstate != cur_dbstate:
-                raise ActionError("Unable to apply action '{0}': dbstates mismatch: "
-                                  "action target dbstate {1}, current dbstate {2}".format(
-                                  self.name(), repr(self.dbstate), repr(cur_dbstate)))
-            else:
-                self._do_apply(database, txn)
-
-        except ActionError:
-            self.dbstate = None
-            raise
+        if self.dbstate is None:
+            self.dbstate = cur_dbstate
 
     def _do_apply(self, database, txn):
         assert 0, "Action do method is not implemented"

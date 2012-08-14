@@ -37,6 +37,9 @@ rcname_add = add_action(add_record_cname.AddRecord_CNAME(zone='myzone', host='go
 ra_add = add_action(add_record_a.AddRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4', ttl=10))
 z2_add = add_action(add_zone.AddZone(arena='myarena', segment='mysegment', zone='myzone2'))
 rdname_add = add_action(add_record_dname.AddRecord_DNAME(zone='myzone2', zone_dst="myzone."))
+rns_add = add_action(add_record_ns.AddRecord_NS(zone='myzone', domain="ns.myzone."))
+rns2_add = add_action(add_record_ns.AddRecord_NS(zone='myzone', domain="ns2.myzone."))
+rmx_add = add_action(add_record_mx.AddRecord_MX(zone='myzone', domain="mail.myzone."))
 
 a_del = del_action(del_arena.DelArena(arena='myarena'))
 s_del = del_action(del_segment.DelSegment(arena='myarena', segment='mysegment'))
@@ -46,3 +49,6 @@ rcname_del = del_action(del_record_cname.DelRecord_CNAME(zone='myzone', host='go
 ra_del = del_action(del_record_a.DelRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4'))
 z2_del = del_action(del_zone.DelZone(arena='myarena', segment='mysegment', zone='myzone2'))
 rdname_del = del_action(del_record_dname.DelRecord_DNAME(zone='myzone2', zone_dst="myzone."))
+rns_del = del_action(del_record_ns.DelRecord_NS(zone='myzone', domain="ns.myzone."))
+rns2_del = del_action(del_record_ns.DelRecord_NS(zone='myzone', domain="ns2.myzone."))
+rmx_del = del_action(del_record_mx.DelRecord_MX(zone='myzone', domain="mail.myzone."))

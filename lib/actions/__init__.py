@@ -10,5 +10,9 @@ __all__ = [
     "add_record_cname",
     "del_record_cname",
     "add_record_dname",
-    "del_record_dname"
+    "del_record_dname",
+    "add_record_mx",
+    "del_record_mx",
+    "add_record_ns",
+    "del_record_ns"
 ]

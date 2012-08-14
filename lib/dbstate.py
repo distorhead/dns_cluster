@@ -106,16 +106,16 @@ class Dbstate(object):
         adb = database.dbpool().arena.open()
         sdb = database.dbpool().dbstate.open()
 
-        astate_list = []
+        astate_acc = set()
         for arena in keys(adb, txn):
             akey = self._arena_key(arena)
 
             astate = sdb.get(akey, None, txn)
             if astate is None:
                 astate = self.update_arena(arena, database, txn, cascade=False)
-            astate_list.append(astate)
+            astate_acc.add(astate)
 
-        gstate = self._make_state(str(astate_list))
+        gstate = self._make_state(str(astate_acc))
         sdb.put(self._global_key(), gstate, txn)
 
         adb.close()
@@ -136,17 +136,17 @@ class Dbstate(object):
         asdb = database.dbpool().arena_segment.open()
         sdb = database.dbpool().dbstate.open()
 
-        sstate_list = []
+        sstate_acc = set()
         for segment in get_all(asdb, arena, txn):
             skey = self._segment_key(arena, segment)
             sstate = sdb.get(skey, None, txn)
             if sstate is None:
                 sstate = self.update_segment(arena, segment, database, txn,
                                              cascade=False)
-            sstate_list.append(sstate)
+            sstate_acc.add(sstate)
 
         if adb.exists(arena, txn):
-            astate = self._make_state(str(sstate_list))
+            astate = self._make_state(str(sstate_acc))
             sdb.put(self._arena_key(arena), astate, txn)
         else:
             self.del_arena(arena, database, txn)
@@ -174,17 +174,17 @@ class Dbstate(object):
         szdb = database.dbpool().segment_zone.open()
         sdb = database.dbpool().dbstate.open()
 
-        zstate_list = []
+        zstate_acc = set()
         szkey = arena + ' ' + segment
         for zone in get_all(szdb, szkey, txn):
             zkey = self._zone_key(zone)
             zstate = sdb.get(zkey, None, txn)
             if zstate is None:
                 zstate = self.update_zone(zone, database, txn, cascade=False)
-            zstate_list.append(zstate)
+            zstate_acc.add(zstate)
 
         if pair_exists(asdb, arena, segment, txn):
-            sstate = self._make_state(str(zstate_list))
+            sstate = self._make_state(str(zstate_acc))
             sdb.put(self._segment_key(arena, segment), sstate, txn)
         else:
             self.del_segment(arena, segment, database, txn)
@@ -215,22 +215,23 @@ class Dbstate(object):
         xdb = database.dbpool().dns_xfr.open()
         sdb = database.dbpool().dbstate.open()
 
-        zone_data = []
+        zone_acc = set()
 
         for dkey in get_all(zddb, zone, txn):
-            dns_data = [rec_data.split(' ')[1:] for rec_data in get_all(ddb, dkey, txn)]
-            zone_data.append(dns_data)
+            dns_data = str(set([rec_data[rec_data.find(' '):] 
+                                for rec_data in get_all(ddb, dkey, txn)]))
+            zone_acc.add(dns_data)
 
-        dns_client = get_all(cdb, zone, txn)
-        zone_data.append(dns_client)
+        dns_client = str(set(get_all(cdb, zone, txn)))
+        zone_acc.add(dns_client)
 
-        dns_xfr = get_all(xdb, zone, txn)
-        zone_data.append(dns_xfr)
+        dns_xfr = str(set(get_all(xdb, zone, txn)))
+        zone_acc.add(dns_xfr)
 
         zone_rname = reorder(zone)
 
         if zdb.exists(zone_rname, txn):
-            zstate = self._make_state(str(zone_data))
+            zstate = self._make_state(str(zone_acc))
             sdb.put(self._zone_key(zone), zstate, txn)
         else:
             self.del_zone(zone, database, txn)

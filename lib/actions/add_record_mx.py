@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
 from lib.action import Action, ActionError
-from lib.actions.record import AddRecord
+from lib.actions.record import RecordAction
 
 
 @Action.register_action
-class AddRecord_MX(AddRecord):
-    ERROR_MSG_TEMPLATE = "unable to {action} MX record {rec}: {reason}"
+class AddRecord_MX(RecordAction):
+    ERROR_MSG_TEMPLATE = "unable to add MX record {rec}: {reason}"
     PRIORITY_DEFAULT = 20
 
     def __init__(self, **kwargs):
@@ -14,14 +14,12 @@ class AddRecord_MX(AddRecord):
         self.domain = self.required_data_by_key(kwargs, "domain", str)
         self.priority = self.optional_data_by_key(kwargs, "priority", int,
                                                   self.PRIORITY_DEFAULT)
+        self.ttl = self.optional_data_by_key(kwargs, "ttl", int, self.TTL_DEFAULT)
 
-    def _apply_do(self, txn, database):
+    def _do_apply(self, database, txn):
         rec_data = " ".join([str(token) for token in
                             ["MX", self.priority, self.domain]])
-        self._create_rec(txn, database, "@", rec_data, False)
-
-    def _apply_undo(self, txn, database):
-        self._delete_rec(txn, database, "@", False)
+        self._create_rec(database, txn, "@", self.ttl, rec_data, False)
 
     def _is_record_equal(self, rlist):
         if rlist[3] == "MX" and rlist[5] == self.domain:
@@ -29,23 +27,13 @@ class AddRecord_MX(AddRecord):
         else:
             return False
 
-    def _make_error_msg(self, action, reason):
+    def _make_error_msg(self, reason):
         rec = "{{zone='{0}', domain='{1}', priority='{2}', ttl='{3}'}}".format(
                 self.zone, self.domain, self.priority, self.ttl)
         return self.ERROR_MSG_TEMPLATE.format(
                     rec=rec,
-                    action=action,
                     reason=reason
                 )
-
-
-def add_action(**kwargs):
-    kwargs["state"] = Action.State.DO
-    return AddRecord_MX(**kwargs)
-
-def del_action(**kwargs):
-    kwargs["state"] = Action.State.UNDO
-    return AddRecord_MX(**kwargs)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

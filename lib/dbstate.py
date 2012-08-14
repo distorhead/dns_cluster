@@ -4,11 +4,17 @@ import hashlib
 
 from twisted.python import log
 
-from lib.bdb_helpers import get_all, keys
+from lib.bdb_helpers import get_all, keys, delete
 from lib.common import reorder
 
 
 class Dbstate(object):
+    """
+    Class used to manage database data state hierarchy.
+    This class is collection of methods and constants and
+      supposed to be mixed into another class by inheritance.
+    """
+
     DELIMITER = "_"
     GLOBAL_STATE = "global"
     ARENA_STATE_PREFIX = "a"
@@ -30,7 +36,7 @@ class Dbstate(object):
     def _zone_key(self, zone):
         return self._make_key([self.ZONE_STATE_PREFIX, zone])
 
-    def _get_state(self, key, database, txn=None):
+    def _get_state(self, key, database, txn):
         sdb = database.dbpool().dbstate.open()
         res = sdb.get(key, None, txn)
         sdb.close()
@@ -43,26 +49,60 @@ class Dbstate(object):
             log.err("Unable to make hash of '{0}'".format(data))
             return ""
 
+    def _del_state(self, key, database, txn):
+        sdb = database.dbpool().dbstate.open()
+        delete(sdb, key, txn)
+        sdb.close()
+
     def get_global(self, database, txn=None):
+        """
+        Retrieve global state.
+        """
+
         gkey = self._global_key()
         return self._get_state(gkey, database, txn)
 
     def get_arena(self, arena, database, txn=None):
+        """
+        Retrieve arena state.
+        """
+
         akey = self._arena_key(arena)
         return self._get_state(akey, database, txn)
 
     def get_segment(self, arena, segment, database, txn=None):
+        """
+        Retrieve segment state.
+        """
+
         skey = self._segment_key(arena, segment)
         return self._get_state(skey, database, txn)
 
     def get_zone(self, zone, database, txn=None):
+        """
+        Retrieve zone state.
+        """
+
         zkey = self._zone_key(zone)
         return self._get_state(zkey, database, txn)
 
-    """
-    Change global state
-    """
+    def del_global(self, database, txn=None):
+        self._del_state(self._global_key(), database, txn)
+
+    def del_arena(self, arena, database, txn=None):
+        self._del_state(self._arena_key(arena), database, txn)
+
+    def del_segment(self, arena, segment, database, txn=None):
+        self._del_state(self._segment_key(arena, segment), database, txn)
+
+    def del_zone(self, zone, database, txn=None):
+        self._del_state(self._zone_key(zone), database, txn)
+
     def update_global(self, database, txn=None):
+        """
+        Update global state.
+        """
+
         adb = database.dbpool().arena.open()
         sdb = database.dbpool().dbstate.open()
 
@@ -80,14 +120,19 @@ class Dbstate(object):
 
         adb.close()
         sdb.close()
+
         return gstate
 
-    """
-    Change arena state -> change global state
-    """
     def update_arena(self, arena, database, txn=None, **kwargs):
+        """
+        Update arena state.
+        Keyword argument cascade=True (default),
+          causes global state update.
+        """
+
         cascade = kwargs.get("cascade", True)
 
+        adb = database.dbpool().arena.open()
         asdb = database.dbpool().arena_segment.open()
         sdb = database.dbpool().dbstate.open()
 
@@ -100,24 +145,32 @@ class Dbstate(object):
                                              cascade=False)
             sstate_list.append(sstate)
 
-        astate = self._make_state(str(sstate_list))
-        sdb.put(self._arena_key(arena), astate, txn)
-
-        asdb.close()
-        sdb.close()
+        if adb.exists(arena, txn):
+            astate = self._make_state(str(sstate_list))
+            sdb.put(self._arena_key(arena), astate, txn)
+        else:
+            self.del_arena(arena, database, txn)
+            astate = None
 
         if cascade:
             self.update_global(database, txn)
 
+        adb.close()
+        asdb.close()
+        sdb.close()
+
         return astate
 
-    """
-    Change segment state -> change arena state
-                         -> change global state
-    """
     def update_segment(self, arena, segment, database, txn=None, **kwargs):
+        """
+        Update segment state.
+        Keyword argument cascade=True (default),
+          causes arena state update with cascade=True.
+        """
+
         cascade = kwargs.get("cascade", True)
 
+        asdb = database.dbpool().arena_segment.open()
         szdb = database.dbpool().segment_zone.open()
         sdb = database.dbpool().dbstate.open()
 
@@ -130,25 +183,32 @@ class Dbstate(object):
                 zstate = self.update_zone(zone, database, txn, cascade=False)
             zstate_list.append(zstate)
 
-        sstate = self._make_state(str(zstate_list))
-        sdb.put(self._segment_key(arena, segment), sstate, txn)
-
-        szdb.close()
-        sdb.close()
+        if asdb.exists(arena + ' ' + segment, txn):
+            sstate = self._make_state(str(zstate_list))
+            sdb.put(self._segment_key(arena, segment), sstate, txn)
+        else:
+            self.del_segment(arena, segment, database, txn)
+            sstate = None
 
         if cascade:
             self.update_arena(arena, database, txn, cascade=True)
 
+        asdb.close()
+        szdb.close()
+        sdb.close()
+
         return sstate
 
-    """
-    Change zone state -> change segment state
-                      -> change arena state
-                      -> change global state
-    """
     def update_zone(self, zone, database, txn=None, **kwargs):
+        """
+        Update zone state.
+        Keyword argument cascade=True (default),
+          causes segment state update with cascade=True.
+        """
+
         cascade = kwargs.get("cascade", True)
 
+        zdb = database.dbpool().dns_zone.open()
         zddb = database.dbpool().zone_dns_data.open()
         ddb = database.dbpool().dns_data.open()
         cdb = database.dbpool().dns_client.open()
@@ -167,19 +227,16 @@ class Dbstate(object):
         dns_xfr = get_all(xdb, zone, txn)
         zone_data.append(dns_xfr)
 
-        zstate = self._make_state(str(zone_data))
-        sdb.put(self._zone_key(zone), zstate, txn)
+        zone_rname = reorder(zone)
 
-        zddb.close()
-        ddb.close()
-        cdb.close()
-        xdb.close()
-        sdb.close()
+        if zdb.exists(zone_rname, txn):
+            zstate = self._make_state(str(zone_data))
+            sdb.put(self._zone_key(zone), zstate, txn)
+        else:
+            self.del_zone(zone, database, txn)
+            zstate = None
 
         if cascade:
-            zdb = database.dbpool().dns_zone.open()
-
-            zone_rname = reorder(zone)
             arena_segment = zdb.get(zone_rname, None, txn)
             if not arena_segment is None:
                 aslist = arena_segment.split(' ', 1)
@@ -187,7 +244,12 @@ class Dbstate(object):
                     self.update_segment(aslist[0], aslist[1], database, txn,
                                         cascade=True)
 
-            zdb.close()
+        zdb.close()
+        zddb.close()
+        ddb.close()
+        cdb.close()
+        xdb.close()
+        sdb.close()
 
         return zstate
 

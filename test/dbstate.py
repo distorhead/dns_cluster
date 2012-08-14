@@ -1,9 +1,9 @@
 from context import *
-from fixture import *
 from lib.dbstate import *
 
 sdb = database.dbpool().dbstate.open()
 o = Dbstate()
+o.update_global(database, None)
 
 
 def get_hash(**kwargs):

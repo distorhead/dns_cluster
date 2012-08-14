@@ -17,9 +17,10 @@ class Action(object):
     Serialized action keep all data it needs to perform
       and database target dbstate, to which this action
       is applyable.
-    Subclasses should implementd following methods:
-      _current_dbstate - for retrieving current database state
+    Subclasses should implement following methods:
       _do_apply - for performing actual action
+      (optional) _current_dbstate - for retrieving current database state.
+        Default method allows applying action on any state.
     """
 
     registered_actions = {}
@@ -76,7 +77,8 @@ class Action(object):
         self.dbstate = kwargs.get("dbstate", None)
 
     def apply(self, database, txn):
-        cur_dbstate = self._current_dbstate(txn, database)
+        cur_dbstate = self._current_dbstate(database, txn)
+        print 'cur_dbstate =', cur_dbstate
 
         if self.dbstate is None:
             self.dbstate = cur_dbstate

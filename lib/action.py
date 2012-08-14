@@ -62,7 +62,7 @@ class Action(object):
         return act_cls(**data)
 
     def serialize(self):
-        name = self.__class__.__name__
+        name = self.name()
         if not self.registered_actions.has_key(name):
             raise ActionError("Unable to serialize action: action '{0}' "
                               "is not registered".format(name))
@@ -76,18 +76,26 @@ class Action(object):
     def __init__(self, **kwargs):
         self.dbstate = kwargs.get("dbstate", None)
 
+    def name(self):
+        return self.__class__.__name__
+
     def apply(self, database, txn):
-        cur_dbstate = self._current_dbstate(database, txn)
+        try:
+            cur_dbstate = self._current_dbstate(database, txn)
 
-        if self.dbstate is None:
-            self.dbstate = cur_dbstate
+            if self.dbstate is None:
+                self.dbstate = cur_dbstate
 
-        if self.dbstate != cur_dbstate:
-            raise ActionError("dbstates mismatch: action target dbstate {0}, "
-                              "current dbstate {1}".format(
-                              repr(self.dbstate), repr(cur_dbstate)))
-        else:
-            self._do_apply(database, txn)
+            if self.dbstate != cur_dbstate:
+                raise ActionError("Unable to apply action '{0}': dbstates mismatch: "
+                                  "action target dbstate {1}, current dbstate {2}".format(
+                                  self.name(), repr(self.dbstate), repr(cur_dbstate)))
+            else:
+                self._do_apply(database, txn)
+
+        except ActionError:
+            self.dbstate = None
+            raise
 
     def _do_apply(self, database, txn):
         assert 0, "Action do method is not implemented"

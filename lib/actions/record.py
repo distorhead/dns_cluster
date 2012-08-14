@@ -50,7 +50,9 @@ class RecordAction(Action, Dbstate):
 
         raw_rec = " ".join([str(newid), "@", str(ttl), rec_data])
         ddb.put(dkey, raw_rec, txn)
-        zddb.put(self.zone, dkey, txn)
+
+        if not bdb_helpers.pair_exists(zddb, self.zone, dkey, txn):
+            zddb.put(self.zone, dkey, txn)
 
         ddb.close()
         zddb.close()
@@ -80,7 +82,8 @@ class RecordAction(Action, Dbstate):
         if not found:
             raise ActionError(self._make_error_msg("record doesn't exist"))
 
-        bdb_helpers.delete_pair(zddb, self.zone, dkey, txn)
+        if not ddb.exists(dkey, txn):
+            bdb_helpers.delete_pair(zddb, self.zone, dkey, txn)
 
         ddb.close()
         zddb.close()

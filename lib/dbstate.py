@@ -218,7 +218,7 @@ class Dbstate(object):
         zone_data = []
 
         for dkey in get_all(zddb, zone, txn):
-            dns_data = get_all(ddb, dkey, txn)
+            dns_data = [rec_data.split(' ')[1:] for rec_data in get_all(ddb, dkey, txn)]
             zone_data.append(dns_data)
 
         dns_client = get_all(cdb, zone, txn)

@@ -11,15 +11,12 @@ def apply(act):
 
 add_actions = []
 del_actions = []
-all_actions = []
 
 def add_action(act):
-    all_actions.append(act)
     add_actions.append(act)
     return act
 
 def del_action(act):
-    all_actions.append(act)
     del_actions.append(act)
     return act
 
@@ -33,10 +30,19 @@ def apply_del():
 
 
 a_add = add_action(add_arena.AddArena(arena='myarena'))
-a_del = del_action(del_arena.DelArena(arena='myarena'))
 s_add = add_action(add_segment.AddSegment(arena='myarena', segment='mysegment'))
-s_del = del_action(del_segment.DelSegment(arena='myarena', segment='mysegment'))
 z_add = add_action(add_zone.AddZone(arena='myarena', segment='mysegment', zone='myzone'))
-z_del = del_action(del_zone.DelZone(arena='myarena', segment='mysegment', zone='myzone'))
+rcname_add = add_action(add_record_cname.AddRecord_CNAME(zone='myzone', host='go',
+                        domain='www.yandex.ru.', ttl=101))
 ra_add = add_action(add_record_a.AddRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4', ttl=10))
+z2_add = add_action(add_zone.AddZone(arena='myarena', segment='mysegment', zone='myzone2'))
+rdname_add = add_action(add_record_dname.AddRecord_DNAME(zone='myzone2', zone_dst="myzone."))
+
+a_del = del_action(del_arena.DelArena(arena='myarena'))
+s_del = del_action(del_segment.DelSegment(arena='myarena', segment='mysegment'))
+z_del = del_action(del_zone.DelZone(arena='myarena', segment='mysegment', zone='myzone'))
+rcname_del = del_action(del_record_cname.DelRecord_CNAME(zone='myzone', host='go',
+                        domain='www.yandex.ru.'))
 ra_del = del_action(del_record_a.DelRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4'))
+z2_del = del_action(del_zone.DelZone(arena='myarena', segment='mysegment', zone='myzone2'))
+rdname_del = del_action(del_record_dname.DelRecord_DNAME(zone='myzone2', zone_dst="myzone."))

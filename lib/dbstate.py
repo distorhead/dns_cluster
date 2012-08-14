@@ -4,7 +4,7 @@ import hashlib
 
 from twisted.python import log
 
-from lib.bdb_helpers import get_all, keys, delete
+from lib.bdb_helpers import get_all, keys, delete, pair_exists
 from lib.common import reorder
 
 
@@ -183,7 +183,7 @@ class Dbstate(object):
                 zstate = self.update_zone(zone, database, txn, cascade=False)
             zstate_list.append(zstate)
 
-        if asdb.exists(arena + ' ' + segment, txn):
+        if pair_exists(asdb, arena, segment, txn):
             sstate = self._make_state(str(zstate_list))
             sdb.put(self._segment_key(arena, segment), sstate, txn)
         else:

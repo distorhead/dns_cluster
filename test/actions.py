@@ -44,6 +44,9 @@ z3_add = add_action(add_zone.AddZone(arena='myarena', segment='mysegment',
                                      zone='3.2.1.in-addr.arpa'))
 rptr_add = add_action(add_record_ptr.AddRecord_PTR(zone='3.2.1.in-addr.arpa', host='4',
                                                    domain='fuuu.myzone.', ttl=107))
+rsoa_add = add_action(add_record_soa.AddRecord_SOA(zone='myzone2', primary_ns='ns.myzone.',
+                                             resp_person='sdf', serial=10, refresh=30,
+                                             retry=21, expire=21, minimum=12, ttl=123))
 
 a_del = del_action(del_arena.DelArena(arena='myarena'))
 s_del = del_action(del_segment.DelSegment(arena='myarena', segment='mysegment'))
@@ -60,3 +63,4 @@ z3_del = del_action(del_zone.DelZone(arena='myarena', segment='mysegment',
                                      zone='3.2.1.in-addr.arpa'))
 rptr_del = del_action(del_record_ptr.DelRecord_PTR(zone='3.2.1.in-addr.arpa', host='4',
                                                    domain='fuuu.myzone.'))
+rsoa_del = del_action(del_record_soa.DelRecord_SOA(zone='myzone2'))

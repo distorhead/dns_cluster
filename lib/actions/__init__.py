@@ -16,5 +16,7 @@ __all__ = [
     "add_record_mx",
     "del_record_mx",
     "add_record_ns",
-    "del_record_ns"
+    "del_record_ns",
+    "add_record_soa",
+    "del_record_soa"
 ]

@@ -7,6 +7,8 @@ __all__ = [
     "del_zone",
     "add_record_a",
     "del_record_a",
+    "add_record_ptr",
+    "del_record_ptr",
     "add_record_cname",
     "del_record_cname",
     "add_record_dname",

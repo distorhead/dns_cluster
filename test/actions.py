@@ -9,9 +9,10 @@ a_journal = sp.get("action_journal")
 jdb = a_journal.dbpool().action.open()
 
 def apply(act):
-    with database.transaction() as txn:
-        act.apply(database, txn)
-        a_journal.record_action(act, txn)
+    #with database.transaction() as txn:
+        #act.apply(database, txn)
+        #a_journal.record_action(act, txn)
+    act.apply(database, None)
 
 
 add_actions = []

@@ -239,7 +239,7 @@ class context:
 
         assert not self._dbenv_homedir is None
         assert not self._dbfile is None
-   
+
         self._dbenv = bdb.DBEnv()
         self._dbenv.open(self._dbenv_homedir, self._dbenv_flags)
 

@@ -18,7 +18,6 @@ class AddRecord_TXT(RecordAction):
         self._create_rec(database, txn, "@", self.ttl, rec_data, False)
 
     def _is_record_equal(self, rlist):
-        print "Equality checking: {0}".format(repr(rlist))
         if rlist[3] == "TXT" and rlist[4] == self._format(self.text):
             return True
         else:

@@ -47,7 +47,8 @@ class ServiceProvider(object):
         return cfg.get(srv_name, {})
 
     def _initialize_srv(self, srv, srv_cfg, cfg, count=1):
-        if count > 100:
+        if count > 999:
+            #FIXME
             raise ServiceError("There is a circular dependency between services")
 
         for dep in srv.deps:

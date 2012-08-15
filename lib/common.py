@@ -4,7 +4,8 @@ import re
 
 
 def _make_split():
-    regex = re.compile(r'([a-zA-Z0-9.@_]+)|("[a-zA-Z0-9.@_ \t\n]+")')
+    common_chars = r"a-zA-Z0-9`~!@#$%^&*-=_+\(\)\{\}\[\]',./?:;<>"
+    regex = re.compile(r'([{0}]+)|("[{0} \t\n]+")'.format(common_chars))
     def split(s):
         """
         Split given string by whitespaces.

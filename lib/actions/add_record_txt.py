@@ -1,25 +1,24 @@
 # -*- coding: utf-8 -*-
 
 from lib.action import Action, ActionError
-from lib.actions.record import AddRecord
+from lib.actions.record import RecordAction
 
 
 @Action.register_action
-class AddRecord_TXT(AddRecord):
-    ERROR_MSG_TEMPLATE = "unable to {action} TXT record {rec}: {reason}"
+class AddRecord_TXT(RecordAction):
+    ERROR_MSG_TEMPLATE = "unable to add TXT record {rec}: {reason}"
 
     def __init__(self, **kwargs):
         super(AddRecord_TXT, self).__init__(**kwargs)
         self.text = self.required_data_by_key(kwargs, "text", str)
+        self.ttl = self.optional_data_by_key(kwargs, "ttl", int, self.TTL_DEFAULT)
 
-    def _apply_do(self, txn, database):
+    def _do_apply(self, database, txn):
         rec_data = "TXT " + self._format(self.text)
-        self._create_rec(txn, database, "@", rec_data, False)
-
-    def _apply_undo(self, txn, database):
-        self._delete_rec(txn, database, "@", False)
+        self._create_rec(database, txn, "@", self.ttl, rec_data, False)
 
     def _is_record_equal(self, rlist):
+        print "Equality checking: {0}".format(repr(rlist))
         if rlist[3] == "TXT" and rlist[4] == self._format(self.text):
             return True
         else:
@@ -28,23 +27,13 @@ class AddRecord_TXT(AddRecord):
     def _format(self, text):
         return '"' + text + '"'
 
-    def _make_error_msg(self, action, reason):
+    def _make_error_msg(self, reason):
         rec = "{{zone='{0}', text='{1}', ttl='{2}'}}".format(
                 self.zone, self.text, self.ttl)
         return self.ERROR_MSG_TEMPLATE.format(
                     rec=rec,
-                    action=action,
                     reason=reason
                 )
-
-
-def add_action(**kwargs):
-    kwargs["state"] = Action.State.DO
-    return AddRecord_TXT(**kwargs)
-
-def del_action(**kwargs):
-    kwargs["state"] = Action.State.UNDO
-    return AddRecord_TXT(**kwargs)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

@@ -18,5 +18,9 @@ __all__ = [
     "add_record_ns",
     "del_record_ns",
     "add_record_soa",
-    "del_record_soa"
+    "del_record_soa",
+    "add_record_srv",
+    "del_record_srv",
+    "add_record_txt",
+    "del_record_txt"
 ]

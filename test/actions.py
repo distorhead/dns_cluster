@@ -47,6 +47,9 @@ rptr_add = add_action(add_record_ptr.AddRecord_PTR(zone='3.2.1.in-addr.arpa', ho
 rsoa_add = add_action(add_record_soa.AddRecord_SOA(zone='myzone2', primary_ns='ns.myzone.',
                                              resp_person='sdf', serial=10, refresh=30,
                                              retry=21, expire=21, minimum=12, ttl=123))
+rsrv_add = add_action(add_record_srv.AddRecord_SRV(zone='myzone', service='_httpd._tcp',
+                                                   port=8080, domain='web.myzone.'))
+rtxt_add = add_action(add_record_txt.AddRecord_TXT(zone='myzone', text='!dlroW ,olleH'))
 
 a_del = del_action(del_arena.DelArena(arena='myarena'))
 s_del = del_action(del_segment.DelSegment(arena='myarena', segment='mysegment'))
@@ -64,3 +67,6 @@ z3_del = del_action(del_zone.DelZone(arena='myarena', segment='mysegment',
 rptr_del = del_action(del_record_ptr.DelRecord_PTR(zone='3.2.1.in-addr.arpa', host='4',
                                                    domain='fuuu.myzone.'))
 rsoa_del = del_action(del_record_soa.DelRecord_SOA(zone='myzone2'))
+rsrv_del = del_action(del_record_srv.DelRecord_SRV(zone='myzone', service='_httpd._tcp',
+                                                   port=8080, domain='web.myzone.'))
+rtxt_del = del_action(del_record_txt.DelRecord_TXT(zone='myzone', text='!dlroW ,olleH'))

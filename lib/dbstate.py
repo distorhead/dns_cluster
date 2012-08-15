@@ -44,7 +44,7 @@ class Dbstate(object):
 
     def _make_state(self, data):
         try:
-            return hashlib.md5(data).digest()
+            return hashlib.md5(data).hexdigest()
         except:
             log.err("Unable to make hash of '{0}'".format(data))
             return ""

@@ -122,10 +122,15 @@ class journal(object):
     def dbpool(self):
         return self._dbpool
 
-    def record_action(self, act, txn):
+    def record_action(self, act, txn=None, pos=None):
         adb = self.dbpool().action.open()
 
-        seq = self.dbpool().action.sequence()
+        if not pos is None:
+            # reset sequence generator if position given
+            adb.delete(database.Database.SEQUENCE_KEY, txn)
+
+        # initial value will be ignored if sequence already exists
+        seq = self.dbpool().action.sequence(initial=pos)
         newid = seq.get(1, txn)
         seq.close()
 
@@ -133,6 +138,26 @@ class journal(object):
         adb.put(str(newid), dump, txn)
 
         adb.close()
+
+    def get_position(self, txn=None):
+        seq = self.dbpool().action.sequence()
+        pos = seq.stat().get("last_value", None)
+        seq.close()
+        return pos
+
+    def get_since_position(self, pos, txn=None):
+        res = []
+        adb = self.dbpool().action.open()
+        cur_pos = self.get_position(txn)
+
+        for key in range(pos + 1, cur_pos + 1):
+            act = adb.get(str(key), None, txn)
+            if not act is None:
+                res.append(act)
+
+        adb.close()
+
+        return res
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

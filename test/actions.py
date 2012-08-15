@@ -2,11 +2,16 @@ from context import *
 from dbstate import *
 
 from lib.actions import *
+from lib.action import Action
 
+
+a_journal = sp.get("action_journal")
+jdb = a_journal.dbpool().action.open()
 
 def apply(act):
     with database.transaction() as txn:
         act.apply(database, txn)
+        a_journal.record_action(act, txn)
 
 
 add_actions = []

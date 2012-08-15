@@ -20,8 +20,8 @@ class AddSegment(Action, Dbstate):
         return self.get_arena(self.arena, database, txn)
 
     def _do_apply(self, database, txn):
-        adb = database.dbpool().arena.open()
-        asdb = database.dbpool().arena_segment.open()
+        adb = database.dbpool().arena.dbhandle()
+        asdb = database.dbpool().arena_segment.dbhandle()
 
         if not adb.exists(self.arena, txn):
             raise ActionError(self._make_error_msg("arena doesn't exist"))
@@ -31,9 +31,6 @@ class AddSegment(Action, Dbstate):
             asdb.put(self.arena, self.segment, txn)
         else:
             raise ActionError(self._make_error_msg("segment already exists"))
-
-        adb.close()
-        asdb.close()
 
         self.update_segment(self.arena, self.segment, database, txn)
 

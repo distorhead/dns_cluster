@@ -123,7 +123,7 @@ class journal(object):
         return self._dbpool
 
     def record_action(self, act, txn=None, pos=None):
-        adb = self.dbpool().action.open()
+        adb = self.dbpool().action.dbhandle()
 
         if not pos is None:
             # reset sequence generator if position given
@@ -137,8 +137,6 @@ class journal(object):
         dump = act.serialize()
         adb.put(str(newid), dump, txn)
 
-        adb.close()
-
     def get_position(self, txn=None):
         seq = self.dbpool().action.sequence()
         pos = seq.stat().get("last_value", None)
@@ -147,15 +145,13 @@ class journal(object):
 
     def get_since_position(self, pos, txn=None):
         res = []
-        adb = self.dbpool().action.open()
+        adb = self.dbpool().action.dbhandle()
         cur_pos = self.get_position(txn)
 
         for key in range(pos + 1, cur_pos + 1):
             act = adb.get(str(key), None, txn)
             if not act is None:
                 res.append(act)
-
-        adb.close()
 
         return res
 

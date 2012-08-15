@@ -78,22 +78,17 @@ class Database(object):
         self._type = type
         self._flags = flags
         self._open_flags = open_flags
+        self._dbhandle = None
 
-    def open(self, txn=None):
-        """
-        Open database with stored options and flags
-        in specified transaction (may be useful for opening many
-        databases in one transaction) or in implicitly created one.
-        """
-
-        # Transactional database may be opened only in transaction
-        #   so create own if not given as arg
-        if txn is None:
+    def dbhandle(self):
+        if self._dbhandle is None:
+            # Transactional database may be opened only in transaction
+            #   so create own if not given as arg
             t = Transaction(self._dbenv)
             with t as txn:
-                return self._do_open(txn)
-        else:
-            return self._do_open(txn)
+                self._dbhandle = self._do_open(txn)
+
+        return self._dbhandle
 
     def _do_open(self, txn):
         db = bdb.DB(self._dbenv)
@@ -112,7 +107,7 @@ class Database(object):
             seqkey = self.SEQUENCE_KEY
 
         if dbhandle is None:
-            dbhandle = self.open()
+            dbhandle = self.dbhandle()
 
         dbseq = bdb.DBSequence(dbhandle)
 

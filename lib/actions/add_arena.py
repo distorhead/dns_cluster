@@ -12,7 +12,7 @@ class AddArena(Action, Dbstate):
         self.arena = self.required_data_by_key(kwargs, "arena", str)
 
     def _do_apply(self, database, txn):
-        adb = database.dbpool().arena.open()
+        adb = database.dbpool().arena.dbhandle()
 
         if not adb.exists(self.arena, txn):
             adb.put(self.arena, '', txn)
@@ -20,8 +20,6 @@ class AddArena(Action, Dbstate):
             raise ActionError("unable to add arena '{0}': "
                               "arena already exists".format(
                                             self.arena))
-
-        adb.close()
 
         self.update_arena(self.arena, database, txn)
 

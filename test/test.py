@@ -3,9 +3,9 @@ from lib.action import *
 from lib.action import context as act_context
 
 
-j_sdb = act_context().dbpool().session.open()
-j_adb = act_context().dbpool().action.open()
-j_sadb = act_context().dbpool().session_action.open()
+j_sdb = act_context().dbpool().session.dbhandle()
+j_adb = act_context().dbpool().action.dbhandle()
+j_sadb = act_context().dbpool().session_action.dbhandle()
 
 adb.put('myarena', '')
 

@@ -15,8 +15,8 @@ class DelArena(Action, Dbstate):
         return self.get_global(database, txn)
 
     def _do_apply(self, database, txn):
-        adb = database.dbpool().arena.open()
-        asdb = database.dbpool().arena_segment.open()
+        adb = database.dbpool().arena.dbhandle()
+        asdb = database.dbpool().arena_segment.dbhandle()
 
         if asdb.exists(self.arena, txn):
             raise ActionError("unable to delete arena '{0}': "
@@ -29,9 +29,6 @@ class DelArena(Action, Dbstate):
             raise ActionError("unable to delete arena '{0}': "
                               "arena doesn't exist".format(
                                             self.arena))
-
-        adb.close()
-        asdb.close()
 
         self.del_arena(self.arena, database, txn)
         self.update_global(database, txn)

@@ -22,10 +22,10 @@ class AddZone(Action, Dbstate):
         return self.get_segment(self.arena, self.segment, database, txn)
 
     def _do_apply(self, database, txn):
-        adb = database.dbpool().arena.open()
-        asdb = database.dbpool().arena_segment.open()
-        szdb = database.dbpool().segment_zone.open()
-        zdb = database.dbpool().dns_zone.open()
+        adb = database.dbpool().arena.dbhandle()
+        asdb = database.dbpool().arena_segment.dbhandle()
+        szdb = database.dbpool().segment_zone.dbhandle()
+        zdb = database.dbpool().dns_zone.dbhandle()
 
         if not adb.exists(self.arena, txn):
             raise ActionError(self._make_error_msg("arena doesn't exist"))
@@ -47,11 +47,6 @@ class AddZone(Action, Dbstate):
         zones = bdb_helpers.get_all(szdb, sz_key, txn)
         if not self.zone in zones:
             szdb.put(sz_key, self.zone, txn)
-
-        adb.close()
-        asdb.close()
-        szdb.close()
-        zdb.close()
 
         self.update_zone(self.zone, database, txn)
 

@@ -26,17 +26,15 @@ class RecordAction(Action, Dbstate):
         return self.get_zone(self.zone, database, txn)
 
     def _create_rec(self, database, txn, host, ttl, rec_data, add_host=False):
-        zdb = database.dbpool().dns_zone.open()
+        zdb = database.dbpool().dns_zone.dbhandle()
         self._check_zone(zdb, txn)
-        zdb.close()
 
         if add_host:
-            xdb = database.dbpool().dns_xfr.open()
+            xdb = database.dbpool().dns_xfr.dbhandle()
             self._add_host(xdb, txn, host)
-            xdb.close()
 
-        ddb = database.dbpool().dns_data.open()
-        zddb = database.dbpool().zone_dns_data.open()
+        ddb = database.dbpool().dns_data.dbhandle()
+        zddb = database.dbpool().zone_dns_data.dbhandle()
 
         dkey = self.zone + ' ' + host
         for rec in bdb_helpers.get_all(ddb, dkey, txn):
@@ -54,22 +52,18 @@ class RecordAction(Action, Dbstate):
         if not bdb_helpers.pair_exists(zddb, self.zone, dkey, txn):
             zddb.put(self.zone, dkey, txn)
 
-        ddb.close()
-        zddb.close()
         self.update_zone(self.zone, database, txn)
 
     def _delete_rec(self, database, txn, host, del_host=False):
-        zdb = database.dbpool().dns_zone.open()
+        zdb = database.dbpool().dns_zone.dbhandle()
         self._check_zone(zdb, txn)
-        zdb.close()
 
         if del_host:
-            xdb = database.dbpool().dns_xfr.open()
+            xdb = database.dbpool().dns_xfr.dbhandle()
             self._del_host(xdb, txn, host)
-            xdb.close()
 
-        ddb = database.dbpool().dns_data.open()
-        zddb = database.dbpool().zone_dns_data.open()
+        ddb = database.dbpool().dns_data.dbhandle()
+        zddb = database.dbpool().zone_dns_data.dbhandle()
 
         found = False
         dkey = self.zone + ' ' + host
@@ -85,8 +79,6 @@ class RecordAction(Action, Dbstate):
         if not ddb.exists(dkey, txn):
             bdb_helpers.delete_pair(zddb, self.zone, dkey, txn)
 
-        ddb.close()
-        zddb.close()
         self.update_zone(self.zone, database, txn)
 
     def _check_zone(self, zdb, txn):

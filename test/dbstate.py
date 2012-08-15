@@ -1,7 +1,7 @@
 from context import *
 from lib.dbstate import *
 
-sdb = database.dbpool().dbstate.open()
+sdb = database.dbpool().dbstate.dbhandle()
 o = Dbstate()
 o.update_global(database, None)
 

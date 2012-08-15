@@ -22,12 +22,12 @@ class DelZone(Action, Dbstate):
         return self.get_segment(self.arena, self.segment, database, txn)
 
     def _do_apply(self, database, txn):
-        adb = database.dbpool().arena.open()
-        asdb = database.dbpool().arena_segment.open()
-        zdb = database.dbpool().dns_zone.open()
-        xdb = database.dbpool().dns_xfr.open()
-        zddb = database.dbpool().zone_dns_data.open()
-        szdb = database.dbpool().segment_zone.open()
+        adb = database.dbpool().arena.dbhandle()
+        asdb = database.dbpool().arena_segment.dbhandle()
+        zdb = database.dbpool().dns_zone.dbhandle()
+        xdb = database.dbpool().dns_xfr.dbhandle()
+        zddb = database.dbpool().zone_dns_data.dbhandle()
+        szdb = database.dbpool().segment_zone.dbhandle()
 
         if not adb.exists(self.arena, txn):
             raise ActionError(self._make_error_msg("arena doesn't exist"))
@@ -48,13 +48,6 @@ class DelZone(Action, Dbstate):
 
         bdb_helpers.delete_pair(szdb, self.arena + ' ' + self.segment,
                                 self.zone, txn)
-
-        adb.close()
-        asdb.close()
-        zdb.close()
-        xdb.close()
-        zddb.close()
-        szdb.close()
 
         self.del_zone(self.zone, database, txn)
         self.update_segment(self.arena, self.segment, database, txn)

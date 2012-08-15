@@ -20,9 +20,9 @@ class DelSegment(Action, Dbstate):
         return self.get_arena(self.arena, database, txn)
 
     def _do_apply(self, database, txn):
-        adb = database.dbpool().arena.open()
-        asdb = database.dbpool().arena_segment.open()
-        szdb = database.dbpool().segment_zone.open()
+        adb = database.dbpool().arena.dbhandle()
+        asdb = database.dbpool().arena_segment.dbhandle()
+        szdb = database.dbpool().segment_zone.dbhandle()
 
         if not adb.exists(self.arena, txn):
             raise ActionError(self._make_error_msg("arena doesn't exist"))
@@ -34,10 +34,6 @@ class DelSegment(Action, Dbstate):
             bdb_helpers.delete_pair(asdb, self.arena, self.segment, txn)
         else:
             raise ActionError(self._make_error_msg("segment doesn't exist"))
-
-        adb.close()
-        asdb.close()
-        szdb.close()
 
         self.del_segment(self.arena, self.segment, database, txn)
         self.update_arena(self.arena, database, txn)

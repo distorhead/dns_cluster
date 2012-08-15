@@ -37,9 +37,8 @@ class Dbstate(object):
         return self._make_key([self.ZONE_STATE_PREFIX, zone])
 
     def _get_state(self, key, database, txn):
-        sdb = database.dbpool().dbstate.open()
+        sdb = database.dbpool().dbstate.dbhandle()
         res = sdb.get(key, None, txn)
-        sdb.close()
         return res
 
     def _make_state(self, data):
@@ -50,9 +49,8 @@ class Dbstate(object):
             return ""
 
     def _del_state(self, key, database, txn):
-        sdb = database.dbpool().dbstate.open()
+        sdb = database.dbpool().dbstate.dbhandle()
         delete(sdb, key, txn)
-        sdb.close()
 
     def get_global(self, database, txn=None):
         """
@@ -103,8 +101,8 @@ class Dbstate(object):
         Update global state.
         """
 
-        adb = database.dbpool().arena.open()
-        sdb = database.dbpool().dbstate.open()
+        adb = database.dbpool().arena.dbhandle()
+        sdb = database.dbpool().dbstate.dbhandle()
 
         astate_acc = set()
         for arena in keys(adb, txn):
@@ -118,9 +116,6 @@ class Dbstate(object):
         gstate = self._make_state(str(astate_acc))
         sdb.put(self._global_key(), gstate, txn)
 
-        adb.close()
-        sdb.close()
-
         return gstate
 
     def update_arena(self, arena, database, txn=None, **kwargs):
@@ -132,9 +127,9 @@ class Dbstate(object):
 
         cascade = kwargs.get("cascade", True)
 
-        adb = database.dbpool().arena.open()
-        asdb = database.dbpool().arena_segment.open()
-        sdb = database.dbpool().dbstate.open()
+        adb = database.dbpool().arena.dbhandle()
+        asdb = database.dbpool().arena_segment.dbhandle()
+        sdb = database.dbpool().dbstate.dbhandle()
 
         sstate_acc = set()
         for segment in get_all(asdb, arena, txn):
@@ -155,10 +150,6 @@ class Dbstate(object):
         if cascade:
             self.update_global(database, txn)
 
-        adb.close()
-        asdb.close()
-        sdb.close()
-
         return astate
 
     def update_segment(self, arena, segment, database, txn=None, **kwargs):
@@ -170,9 +161,9 @@ class Dbstate(object):
 
         cascade = kwargs.get("cascade", True)
 
-        asdb = database.dbpool().arena_segment.open()
-        szdb = database.dbpool().segment_zone.open()
-        sdb = database.dbpool().dbstate.open()
+        asdb = database.dbpool().arena_segment.dbhandle()
+        szdb = database.dbpool().segment_zone.dbhandle()
+        sdb = database.dbpool().dbstate.dbhandle()
 
         zstate_acc = set()
         szkey = arena + ' ' + segment
@@ -193,10 +184,6 @@ class Dbstate(object):
         if cascade:
             self.update_arena(arena, database, txn, cascade=True)
 
-        asdb.close()
-        szdb.close()
-        sdb.close()
-
         return sstate
 
     def update_zone(self, zone, database, txn=None, **kwargs):
@@ -208,12 +195,12 @@ class Dbstate(object):
 
         cascade = kwargs.get("cascade", True)
 
-        zdb = database.dbpool().dns_zone.open()
-        zddb = database.dbpool().zone_dns_data.open()
-        ddb = database.dbpool().dns_data.open()
-        cdb = database.dbpool().dns_client.open()
-        xdb = database.dbpool().dns_xfr.open()
-        sdb = database.dbpool().dbstate.open()
+        zdb = database.dbpool().dns_zone.dbhandle()
+        zddb = database.dbpool().zone_dns_data.dbhandle()
+        ddb = database.dbpool().dns_data.dbhandle()
+        cdb = database.dbpool().dns_client.dbhandle()
+        xdb = database.dbpool().dns_xfr.dbhandle()
+        sdb = database.dbpool().dbstate.dbhandle()
 
         zone_acc = set()
 
@@ -244,13 +231,6 @@ class Dbstate(object):
                 if len(aslist) == 2:
                     self.update_segment(aslist[0], aslist[1], database, txn,
                                         cascade=True)
-
-        zdb.close()
-        zddb.close()
-        ddb.close()
-        cdb.close()
-        xdb.close()
-        sdb.close()
 
         return zstate
 

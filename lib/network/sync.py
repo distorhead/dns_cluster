@@ -76,6 +76,11 @@ class SyncProtocol(object):
             else:
                 raise SyncProtocolError("Bad action specification")
 
+    def _do_pull(self):
+        msg = {"cmd": "pull_request"}
+        msg["position"] = self._action_journal.get_position()
+        return msg
+
     def _handle_pull_request(self, msg):
         pos = msg["position"]
         d = threads.deferToThread(self._make_response, pos)
@@ -120,6 +125,12 @@ class SyncProtocol(object):
 
     def send_message(self, msg):
         assert 0, "Send message method is not implemented"
+
+    def pull(self):
+        log.msg("Making pull")
+        d = threads.deferToThread(self._do_pull)
+        d.addCallback(self.send_message)
+        d.addErrback(self._errback)
 
 
 class YamlSyncProtocol(LineReceiver, SyncProtocol):

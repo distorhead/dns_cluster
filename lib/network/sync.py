@@ -7,25 +7,29 @@ from twisted.internet.protocol import Factory, Protocol
 from twisted.protocols.basic import LineReceiver
 from twisted.python.threadpool import ThreadPool
 from twisted.python import log
+from lib.action import Action, ActionError
 
 
 # Define Protocol and Factory here, nothing more.
 # The rest will be defined in /daemons/syncd.tac.
+
+class SyncProtocolError(Exception): pass
 
 class SyncProtocol(object):
     OK = 0
     UP_TO_DATE = 1
     LACK_POSITION = 2
 
-    def __init__(self, action_journal):
+    def __init__(self, action_journal, database):
         self._action_journal = action_journal
+        self._database = database
 
     def _errback(self, failure):
-        log.err("an error occured:")
+        log.err("An error occured:")
         log.err(failure)
 
     def _make_response(self, pos):
-        log.msg("make response")
+        log.msg("Make response")
         msg = {"cmd": "pull_response"}
 
         cur_pos = self._action_journal.get_position()
@@ -49,6 +53,29 @@ class SyncProtocol(object):
 
         return msg
 
+    def _do_apply(self, actions):
+        for act_msg in actions:
+            if isinstance(act_msg, dict):
+                act_dump = act_msg.get("action", None)
+                if act_dump is None:
+                    raise SyncProtocolError("Bad action specification: no action field")
+
+                pos = act_msg.get("position", None)
+                if pos is None:
+                    raise SyncProtocolError("Bad action specification: no position field")
+
+                act = Action.unserialize(act_dump)
+                with self._database.transaction() as txn:
+                    log.msg("Applying action:", act.name())
+                    act.apply(self._database, txn)
+                    log.msg("Writing to journal")
+                    self._action_journal.record_action(act, txn, pos)
+
+                log.msg("Applying done")
+
+            else:
+                raise SyncProtocolError("Bad action specification")
+
     def _handle_pull_request(self, msg):
         pos = msg["position"]
         d = threads.deferToThread(self._make_response, pos)
@@ -56,46 +83,68 @@ class SyncProtocol(object):
         d.addErrback(self._errback)
 
     def _handle_pull_response(self, msg):
-        #TODO
-        pass
+        log.msg("Handling pull response")
+
+        status = msg["status"]
+        if status == self.UP_TO_DATE:
+            log.msg("Server up to date")
+
+        elif status == self.LACK_POSITION:
+            log.err("Unable to sync, remote server doesn't have necessary positions")
+
+        elif status == self.OK:
+            actions = msg["data"]
+            d = threads.deferToThread(self._do_apply, actions)
+            d.addErrback(self._errback)
+
+        else:
+            log.msg("Unknown status '{0}', unable to handle".format(status))
 
     def handle_message(self, msg):
-        cmd = msg.get("cmd", None)
-        log.msg("received cmd: ", cmd)
-        if cmd == "pull_request":
-            self._handle_pull_request(msg)
-        elif cmd == "pull_response":
-            self._handle_pull_response(msg)
-        else:
-            log.msg("unknown cmd '{0}', unable to handle".format(cmd))
+        try:
+            cmd = msg["cmd"]
+            if cmd == "pull_request":
+                self._handle_pull_request(msg)
+
+            elif cmd == "pull_response":
+                self._handle_pull_response(msg)
+
+            else:
+                log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
+
+        except KeyError, key:
+            log.msg("Bad message: no key", key)
+
+        except Exception, exc:
+            log.err("Unable to handle message")
 
     def send_message(self, msg):
         assert 0, "Send message method is not implemented"
 
 
 class YamlSyncProtocol(LineReceiver, SyncProtocol):
-    def __init__(self, action_journal):
-        SyncProtocol.__init__(self, action_journal)
+    def __init__(self, action_journal, database):
+        SyncProtocol.__init__(self, action_journal, database)
         self._received_lines = []
 
     def _parse_msg(self, msg_dump):
         try:
             return yaml.load(msg_dump)
         except yaml.YAMLError, exc:
-            log.msg("unable to parse message: bad yaml: " + str(exc))
+            log.msg("Unable to parse message: bad yaml:", exc)
             return None
 
     def _emit_msg(self, msg):
         try:
             return yaml.dump(msg)
         except yaml.YAMLError, exc:
-            log.err("unable to make yaml dump from message: ", exc)
+            log.err("Unable to make yaml dump from message:", exc)
 
     def _handle_message_str(self, msg_dump):
         msg_data = self._parse_msg(msg_dump)
 
         if isinstance(msg_data, dict):
-            log.msg("raw message: ", str(msg_data))
+            log.msg("Raw message:", repr(msg_dump))
             self.handle_message(msg_data)
 
     def lineReceived(self, line):
@@ -112,7 +161,7 @@ class YamlSyncProtocol(LineReceiver, SyncProtocol):
             resp = msg_dump + "\r\n\r\n"
             self.transport.write(resp)
         else:
-            log.err("unable to send message '{0}'".format(repr(msg)))
+            log.err("Unable to send message '{0}'".format(repr(msg)))
 
 
 class SyncFactory(Factory):
@@ -121,13 +170,15 @@ class SyncFactory(Factory):
         #TODO: binary
     }
 
-    def __init__(self, action_journal, **kwargs):
+    def __init__(self, action_journal, database, **kwargs):
         self._action_journal = action_journal
+        self._database = database
+
         protocol = kwargs.get("protocol", "yaml")
         self._protocol = self.PROTOCOLS.get(protocol, YamlSyncProtocol)
 
     def buildProtocol(self, addr):
-        return self._protocol(self._action_journal);
+        return self._protocol(self._action_journal, self._database)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

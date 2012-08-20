@@ -5,6 +5,7 @@ from bson import BSON
 from lib import database
 from lib.common import required_key, required_type
 from lib.service import ServiceProvider
+from lib import bdb_helpers
 
 
 class ActionError(Exception): pass
@@ -127,10 +128,10 @@ class journal(object):
 
         if not pos is None:
             # reset sequence generator if position given
-            adb.delete(database.Database.SEQUENCE_KEY, txn)
+            bdb_helpers.delete(adb, database.Database.SEQUENCE_KEY, txn)
 
         # initial value will be ignored if sequence already exists
-        seq = self.dbpool().action.sequence(initial=pos)
+        seq = self.dbpool().action.sequence(initial=pos, txn=txn)
         newid = seq.get(1, txn)
         seq.close()
 

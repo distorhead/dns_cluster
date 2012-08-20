@@ -143,6 +143,10 @@ class journal(object):
         seq.close()
         return pos
 
+    def get_by_position(self, pos, txn=None):
+        adb = self.dbpool().action.dbhandle()
+        return adb.get(str(pos), None, txn)
+
     def get_since_position(self, pos, txn=None):
         res = []
         adb = self.dbpool().action.dbhandle()
@@ -151,9 +155,13 @@ class journal(object):
         for key in range(pos + 1, cur_pos + 1):
             act = adb.get(str(key), None, txn)
             if not act is None:
-                res.append(act)
+                res.append((key, act))
 
         return res
+
+    def position_exists(self, pos, txn=None):
+        adb = self.dbpool().action.dbhandle()
+        return adb.exists(str(pos), txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

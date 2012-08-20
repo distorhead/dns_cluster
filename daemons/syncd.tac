@@ -4,9 +4,22 @@
 # 3. Create target service from factory and endpoint string spec.
 # 4. Assign this object as parent to the target service
 
+import lib.action
+
 from twisted.application import service, strports
 from lib.network import sync
+from lib.service import ServiceProvider
+
+
+cfg = {
+    "database": {
+        "dbenv_homedir": "/var/lib/bind",
+        "dbfile": "dlz.db"
+    }
+}
+
+sp = ServiceProvider(init_srv=True, cfg=cfg)
 
 application = service.Application("Dns cluster sync daemon")
-service = strports.service("tcp:1234", sync.SyncServerFactory())
+service = strports.service("tcp:1234", sync.SyncFactory(sp.get("action_journal")))
 service.setServiceParent(application)

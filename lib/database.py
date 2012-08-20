@@ -138,7 +138,7 @@ class DatabasePool(object):
 
 
 @ServiceProvider.register("database")
-class context:
+class manager(object):
     DATABASES = {
         "arena": {
             "type": bdb.DB_BTREE,

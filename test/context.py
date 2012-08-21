@@ -1,10 +1,7 @@
-from lib.bdb_helpers import print_db, get_all
-from lib.service import ServiceProvider
-
-import lib.database
-import lib.action
-import lib.lock
-
+import sys
+import getopt
+import os
+import shutil
 
 cfg = {
     "database": {
@@ -12,6 +9,35 @@ cfg = {
         "dbfile": "dlz.db"
     }
 }
+
+
+args = sys.argv[1:]
+optlist, _ = getopt.getopt(args, "pc:")
+options = dict(optlist)
+
+
+if options.has_key("-c"):
+    cfg_path = options["-c"]
+    top_mod = __import__(cfg_path)
+
+    for mod in cfg_path.split('.')[1:]:
+        top_mod = getattr(top_mod, mod)
+
+    cfg = top_mod.cfg
+
+
+if options.has_key("-p"):
+    shutil.rmtree(cfg["database"]["dbenv_homedir"])
+    os.mkdir(cfg["database"]["dbenv_homedir"])
+
+
+from lib.bdb_helpers import print_db, get_all
+from lib.service import ServiceProvider
+
+import lib.database
+import lib.action
+import lib.lock
+
 
 sp = ServiceProvider(init_srv=True, cfg=cfg)
 database = sp.get("database")

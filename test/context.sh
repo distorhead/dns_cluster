@@ -1,4 +1,3 @@
 #!/bin/bash
 
-sudo rm -rf /var/lib/bind/*
-sudo python -i -c 'from test.context import *'
+sudo python -i -c 'from test.context import *' $@

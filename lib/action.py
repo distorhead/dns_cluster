@@ -148,12 +148,14 @@ class journal(object):
         adb = self.dbpool().action.dbhandle()
         return adb.get(str(pos), None, txn)
 
-    def get_since_position(self, pos, txn=None):
+    def get_since_position(self, pos, number=None, txn=None):
         res = []
         adb = self.dbpool().action.dbhandle()
         cur_pos = self.get_position(txn)
 
-        for key in range(pos + 1, cur_pos + 1):
+        last_pos = min(cur_pos, pos + number)
+
+        for key in range(pos + 1, last_pos + 1):
             act = adb.get(str(key), None, txn)
             if not act is None:
                 res.append((key, act))

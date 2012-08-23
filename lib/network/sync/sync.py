@@ -10,12 +10,89 @@ from twisted.python import log
 from lib.action import Action, ActionError
 
 
-# Define Protocol and Factory here, nothing more.
-# The rest will be defined in /daemons/syncd.tac.
-
 class SyncProtocolError(Exception): pass
 
+
 class SyncProtocol(object):
+    class ProtocolStatus:
+        OK = 0
+        WAIT = 1
+        LACK_POSITION = 2
+
+    class State:
+        NORMAL = 0
+        PULL_SENT = 1
+        ACTIVE = 2
+
+    def __init__(self, actions_handler):
+        self._actions_handler = actions_handler
+        self._actions_relay = []
+        self._actions_handler_run = False
+        self._state = self.State.NORMAL
+
+    def _errback(self, failure, desc):
+        log.err(desc)
+        log.err(failure)
+
+    def _setup_action_handler(self, actions):
+        d = self._actions_handler(actions)
+        d.addCallback(self._on_actions_handled)
+
+    def _on_actions_handled(self, _):
+        if self._actions_relay:
+            self._setup_action_handler(self._actions_relay)
+            self._actions_relay = []
+        else:
+            self._actions_handler_run = False
+
+    def _handle_pull_response(self, msg):
+        if self._state == self.State.PULL_SENT:
+            if not msg.has_key("status"):
+                return
+            if not msg.has_key("data"):
+                return
+
+            self._state = self.State.NORMAL
+
+            if msg["status"] == self.ProtocolStatus.OK:
+                for act_desc in msg["data"]:
+                    if act_desc.has_key("action") and act_desc.has_key("position"):
+                        self._actions_relay.append(act_desc)
+
+                if not self._actions_handler_run:
+                    self._setup_action_handler(self._actions_relay)
+                    self._actions_relay = []
+                    self._actions_handler_run = True
+
+    def handle_message(self, msg):
+        log.msg("Received message:", msg)
+        try:
+            if not msg.has_key("cmd"):
+                return
+
+            cmd = msg["cmd"]
+            if cmd == "pull_response":
+                self._handle_pull_response(msg)
+
+            else:
+                log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
+
+        except Exception, exc:
+            log.err("Unable to handle message", exc)
+
+    def pull_request(self, position):
+        msg = {
+            "cmd": "pull_request",
+            "position": position
+        }
+        self._state = self.State.PULL_SENT
+        self.send_message(msg)
+
+    def send_message(self, msg):
+        assert 0, "Send message method is not implemented"
+
+
+class SyncProtocolOld(object):
     OK = 0
     UP_TO_DATE = 1
     LACK_POSITION = 2
@@ -134,8 +211,8 @@ class SyncProtocol(object):
 
 
 class YamlSyncProtocol(LineReceiver, SyncProtocol):
-    def __init__(self, action_journal, database):
-        SyncProtocol.__init__(self, action_journal, database)
+    def __init__(self, actions_handler):
+        SyncProtocol.__init__(self, actions_handler)
         self._received_lines = []
 
     def _parse_msg(self, msg_dump):
@@ -181,15 +258,13 @@ class SyncFactory(Factory):
         #TODO: binary
     }
 
-    def __init__(self, action_journal, database, **kwargs):
-        self._action_journal = action_journal
-        self._database = database
-
+    def __init__(self, actions_handler=None, **kwargs):
+        self._actions_handler = actions_handler
         protocol = kwargs.get("protocol", "yaml")
         self._protocol = self.PROTOCOLS.get(protocol, YamlSyncProtocol)
 
     def buildProtocol(self, addr):
-        return self._protocol(self._action_journal, self._database)
+        return self._protocol(self._actions_handler)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

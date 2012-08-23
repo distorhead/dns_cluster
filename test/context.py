@@ -7,6 +7,13 @@ cfg = {
     "database": {
         "dbenv_homedir": "/var/lib/bind",
         "dbfile": "dlz.db"
+    },
+
+    "peers": {
+        "foo": {
+            "host": "localhost",
+            "port": 4321
+        }
     }
 }
 

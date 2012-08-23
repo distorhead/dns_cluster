@@ -153,7 +153,10 @@ class journal(object):
         adb = self.dbpool().action.dbhandle()
         cur_pos = self.get_position(txn)
 
-        last_pos = min(cur_pos, pos + number)
+        if number is None:
+            last_pos = cur_pos
+        else:
+            last_pos = min(cur_pos, pos + number)
 
         for key in range(pos + 1, last_pos + 1):
             act = adb.get(str(key), None, txn)

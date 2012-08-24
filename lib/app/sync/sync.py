@@ -16,10 +16,10 @@ class SyncApp(object):
         }
     }
 
-    def __init__(self, peers, db, action_journal, pull_period=10.0):
+    def __init__(self, peers, db, action_journal, **kwargs):
         self._database = db
         self._action_journal = action_journal
-        self._pull_period = pull_period
+        self._pull_period = kwargs.get("pull_period", 10.0)
         self._active_peers = {} #TODO
         self._peers = {}
         self._dbpool = database.DatabasePool(self.DATABASES,

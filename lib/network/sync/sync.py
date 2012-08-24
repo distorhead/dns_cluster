@@ -28,7 +28,7 @@ class SyncProtocol(object):
         self._actions_relay = []
         self._actions_handler_run = False
         self._state = self.State.NORMAL
-        self._state_watchdog_timeout = kwargs.get("state_watchdog_timeout", 60.0)
+        self._state_watchdog_timeout = kwargs.get("state_watchdog_timeout", 360.0)
         self._state_watchdog_timer = None
 
     def _allowed_state(self, *allowed_states):

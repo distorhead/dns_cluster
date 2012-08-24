@@ -4,6 +4,7 @@ from lib.network.sync.sync import SyncClientFactory
 from twisted.internet import reactor, endpoints, defer
 
 
+#TODO: move to network part
 class Peer(object):
     def __init__(self, name, host, port):
         self.name = name

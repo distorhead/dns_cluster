@@ -14,28 +14,73 @@ from lib.common import is_callable
 #class SyncProtocolError(Exception): pass
 
 
-class ProtocolStatus:
-    OK = 0
-    LOST_POSITION = 1
+class Protocol:
+    class Status:
+        OK = 0
+        LOST_POSITION = 1
+
+    class Cmd:
+       PULL_REQUEST = "pull_request" 
+       ACTIONS = "actions"
+       WAIT = "wait"
+       #TODO: HEARTBEAT cmd
 
 
-class SyncClient(object):
+class SyncService(object):
+    def __init__(self, message_sender=None, **kwargs):
+        self.message_sender = message_sender
+        self.peer = None
+        self._state = None
+
+    def _handle_cmd_pull_request(self, msg): pass
+    def _handle_cmd_actions(self, msg): pass
+    def _handle_cmd_wait(self, msg): pass
+
+    def _allowed_state(self, *allowed_states):
+        return self._state in allowed_states
+
+    def send_message(self, msg):
+        if is_callable(self.message_sender):
+            self.message_sender(msg)
+
+    def handle_message(self, msg):
+        log.msg("Received message:", msg)
+        try:
+            if not msg.has_key("cmd"):
+                return
+
+            cmd = msg["cmd"]
+            if cmd == Protocol.Cmd.PULL_REQUEST:
+                self._handle_cmd_pull_request(msg)
+
+            elif cmd == Protocol.Cmd.ACTIONS:
+                self._handle_cmd_actions(msg)
+
+            elif cmd == Protocol.Cmd.WAIT:
+                self._handle_cmd_wait(msg)
+
+            else:
+                log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
+
+        except Exception, exc:
+            log.err("Unable to handle message")
+            log.err(exc)
+
+
+class SyncClient(SyncService):
     class State:
         NORMAL = 0
         PULL_REQ_SENT = 1
         WAIT = 2
 
     def __init__(self, actions_handler=None, message_sender=None, **kwargs):
+        SyncService.__init__(self, message_sender, **kwargs)
         self.actions_handler = actions_handler
-        self.message_sender = message_sender
         self._actions_relay = []
         self._actions_handler_run = False
         self._state = self.State.NORMAL
         self._state_watchdog_timeout = kwargs.get("state_watchdog_timeout", 360.0)
         self._state_watchdog_timer = None
-
-    def _allowed_state(self, *allowed_states):
-        return self._state in allowed_states
 
     def _errback(self, failure, desc):
         log.err(desc)
@@ -47,7 +92,7 @@ class SyncClient(object):
 
     def _setup_action_handler(self, actions):
         if is_callable(self.actions_handler):
-            d = self.actions_handler(actions)
+            d = self.actions_handler(actions, self.peer)
             d.addCallback(self._on_actions_handled)
 
     def _setup_state_watchdog_timer(self):
@@ -69,10 +114,6 @@ class SyncClient(object):
                 self._state_watchdog_timer.cancel()
             self._state_watchdog_timer = None
 
-    def _send_message(self, msg):
-        if is_callable(self.message_sender):
-            self.message_sender(msg)
-
     def _on_actions_handled(self, _):
         if self._actions_relay:
             self._setup_action_handler(self._actions_relay)
@@ -85,7 +126,7 @@ class SyncClient(object):
             if not msg.has_key("status"):
                 return
 
-            if msg["status"] == ProtocolStatus.OK:
+            if msg["status"] == Protocol.Status.OK:
                 for act_desc in msg.get("data", []):
                     if act_desc.has_key("action") and act_desc.has_key("position"):
                         self._actions_relay.append(act_desc)
@@ -97,7 +138,7 @@ class SyncClient(object):
 
                 self._state = self.State.NORMAL
 
-            elif msg["status"] == ProtocolStatus.LOST_POSITION:
+            elif msg["status"] == Protocol.Status.LOST_POSITION:
                 log.msg("Unable to synchronize with peer '{0}': "
                         "peer lost requested position".format(self.peer.name))
                 self._state = self.State.NORMAL
@@ -110,45 +151,48 @@ class SyncClient(object):
             self._state = self.State.WAIT
             self._reset_state_watchdog_timer()
 
-    def handle_message(self, msg):
-        log.msg("Received message:", msg)
-        try:
-            if not msg.has_key("cmd"):
-                return
-
-            cmd = msg["cmd"]
-            if cmd == "actions":
-                self._handle_cmd_actions(msg)
-
-            elif cmd == "wait":
-                self._handle_cmd_wait(msg)
-
-            else:
-                log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
-
-        except Exception, exc:
-            log.err("Unable to handle message")
-            log.err(exc)
-
     def pull_request(self, position):
         if self._allowed_state(self.State.NORMAL):
             log.msg("Requesting pull from peer '{0}'".format(self.peer.name))
             msg = {
-                "cmd": "pull_request",
+                "cmd": Protocol.Cmd.PULL_REQUEST,
                 "position": position
             }
-            self._send_message(msg)
+            self.send_message(msg)
             self._state = self.State.PULL_REQ_SENT
             self._reset_state_watchdog_timer()
 
 
-class SyncServer(object):
+class SyncServer(SyncService):
     class State:
         NORMAL = 0
         WAIT_SENT = 1
 
-    def __init__(self):
+    def __init__(self, pull_handler=None, message_sender=None, **kwargs):
+        SyncService.__init__(self, message_sender, **kwargs)
+        self.pull_handler = pull_handler
+        self.message_sender = message_sender
         self._state = self.State.NORMAL
+
+    def _setup_pull_handler(self, position):
+        if is_callable(self.pull_handler):
+            d = self.pull_handler(position)
+            d.addCallback(self.push_actions)
+
+    def _handle_cmd_pull_request(self, msg):
+        if self._allowed_state(self.State.NORMAL):
+            if not msg.has_key("position"):
+                return
+
+            self._setup_pull_handler(msg["position"])
+
+    def push_actions(self, actions):
+        #TODO
+        pass
+
+    def do_wait(self):
+        #TODO
+        pass
 
 
 class YamlMsgProtocol(LineReceiver):
@@ -203,17 +247,18 @@ class SyncFactory(Factory):
         #TODO: binary
     }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         protocol = kwargs.get("protocol", "yaml")
         self._protocol = self.PROTOCOLS.get(protocol, YamlMsgProtocol)
 
 
 class SyncClientFactory(SyncFactory):
-    def __init__(self, actions_handler, *args, **kwargs):
-        SyncFactory.__init__(self, *args, **kwargs)
+    def __init__(self, actions_handler, **kwargs):
+        SyncFactory.__init__(self, **kwargs)
         self._actions_handler = actions_handler
 
     def buildProtocol(self, addr):
+        log.msg("ADDR:", repr(addr))
         service = SyncClient()
         service.actions_handler = self._actions_handler
 

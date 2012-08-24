@@ -16,27 +16,54 @@ class SyncProtocolError(Exception): pass
 class SyncProtocol(object):
     class ProtocolStatus:
         OK = 0
-        WAIT = 1
-        LACK_POSITION = 2
+        LOST_POSITION = 1
 
     class State:
         NORMAL = 0
-        PULL_SENT = 1
-        ACTIVE = 2
+        PULL_REQ_SENT = 1
+        WAIT = 2
 
-    def __init__(self, actions_handler):
+    def __init__(self, actions_handler, **kwargs):
         self._actions_handler = actions_handler
         self._actions_relay = []
         self._actions_handler_run = False
         self._state = self.State.NORMAL
+        self._state_watchdog_timeout = kwargs.get("state_watchdog_timeout", 60.0)
+        self._state_watchdog_timer = None
+
+    def _allowed_state(self, *allowed_states):
+        return self._state in allowed_states
 
     def _errback(self, failure, desc):
         log.err(desc)
         log.err(failure)
 
+    def _reset_state(self):
+        log.msg("Resetting connection state on watchdog timer")
+        self._state = self.State.NORMAL
+
     def _setup_action_handler(self, actions):
         d = self._actions_handler(actions)
         d.addCallback(self._on_actions_handled)
+
+    def _setup_state_watchdog_timer(self):
+        if (self._state_watchdog_timer is None or 
+            not self._state_watchdog_timer.active()):
+            self._state_watchdog_timer = reactor.callLater(
+                    self._state_watchdog_timeout,
+                    self._reset_state)
+
+    def _reset_state_watchdog_timer(self):
+        self._cancel_state_watchdog_timer()
+        self._state_watchdog_timer = reactor.callLater(
+                self._state_watchdog_timeout,
+                self._reset_state)
+
+    def _cancel_state_watchdog_timer(self):
+        if not self._state_watchdog_timer is None:
+            if self._state_watchdog_timer.active():
+                self._state_watchdog_timer.cancel()
+            self._state_watchdog_timer = None
 
     def _on_actions_handled(self, _):
         if self._actions_relay:
@@ -45,17 +72,13 @@ class SyncProtocol(object):
         else:
             self._actions_handler_run = False
 
-    def _handle_pull_response(self, msg):
-        if self._state == self.State.PULL_SENT:
+    def _handle_cmd_actions(self, msg):
+        if self._allowed_state(self.State.PULL_REQ_SENT, self.State.WAIT):
             if not msg.has_key("status"):
                 return
-            if not msg.has_key("data"):
-                return
-
-            self._state = self.State.NORMAL
 
             if msg["status"] == self.ProtocolStatus.OK:
-                for act_desc in msg["data"]:
+                for act_desc in msg.get("data", []):
                     if act_desc.has_key("action") and act_desc.has_key("position"):
                         self._actions_relay.append(act_desc)
 
@@ -64,6 +87,21 @@ class SyncProtocol(object):
                     self._actions_relay = []
                     self._actions_handler_run = True
 
+                self._state = self.State.NORMAL
+
+            elif msg["status"] == self.ProtocolStatus.LOST_POSITION:
+                log.msg("Unable to synchronize with peer '{0}': "
+                        "peer lost requested position".format(self.peer.name))
+                self._state = self.State.NORMAL
+
+    def _handle_cmd_wait(self, msg):
+        if self._allowed_state(self.State.PULL_REQ_SENT,
+                               self.State.NORMAL,
+                               self.State.WAIT):
+            log.msg("Waiting action from peer '{0}'".format(self.peer.name))
+            self._state = self.State.WAIT
+            self._reset_state_watchdog_timer()
+
     def handle_message(self, msg):
         log.msg("Received message:", msg)
         try:
@@ -71,8 +109,11 @@ class SyncProtocol(object):
                 return
 
             cmd = msg["cmd"]
-            if cmd == "pull_response":
-                self._handle_pull_response(msg)
+            if cmd == "actions":
+                self._handle_cmd_actions(msg)
+
+            elif cmd == "wait":
+                self._handle_cmd_wait(msg)
 
             else:
                 log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
@@ -81,133 +122,18 @@ class SyncProtocol(object):
             log.err("Unable to handle message", exc)
 
     def pull_request(self, position):
-        msg = {
-            "cmd": "pull_request",
-            "position": position
-        }
-        self._state = self.State.PULL_SENT
-        self.send_message(msg)
+        if self._allowed_state(self.State.NORMAL):
+            log.msg("Requesting pull from peer '{0}'".format(self.peer.name))
+            msg = {
+                "cmd": "pull_request",
+                "position": position
+            }
+            self.send_message(msg)
+            self._state = self.State.PULL_REQ_SENT
+            self._reset_state_watchdog_timer()
 
     def send_message(self, msg):
         assert 0, "Send message method is not implemented"
-
-
-class SyncProtocolOld(object):
-    OK = 0
-    UP_TO_DATE = 1
-    LACK_POSITION = 2
-
-    def __init__(self, action_journal, database):
-        self._action_journal = action_journal
-        self._database = database
-
-    def _errback(self, failure):
-        log.err("An error occured:")
-        log.err(failure)
-
-    def _make_response(self, pos):
-        log.msg("Make response")
-        msg = {"cmd": "pull_response"}
-
-        cur_pos = self._action_journal.get_position()
-        if cur_pos <= pos:
-            msg["status"] = self.UP_TO_DATE
-
-        elif not self._action_journal.position_exists(pos + 1):
-            msg["status"] = self.LACK_POSITION
-
-        else:
-            actions = self._action_journal.get_since_position(pos)
-            msg["status"] = self.OK
-            msg["server_position"] = cur_pos
-            msg["data"] = []
-            for pos_act in actions:
-                action_data = {
-                    "position": pos_act[0],
-                    "action": pos_act[1]
-                }
-                msg["data"].append(action_data)
-
-        return msg
-
-    def _do_apply(self, actions):
-        for act_msg in actions:
-            if isinstance(act_msg, dict):
-                act_dump = act_msg.get("action", None)
-                if act_dump is None:
-                    raise SyncProtocolError("Bad action specification: no action field")
-
-                pos = act_msg.get("position", None)
-                if pos is None:
-                    raise SyncProtocolError("Bad action specification: no position field")
-
-                act = Action.unserialize(act_dump)
-                with self._database.transaction() as txn:
-                    log.msg("Applying action:", act.name())
-                    act.apply(self._database, txn)
-                    log.msg("Writing to journal")
-                    self._action_journal.record_action(act, txn, pos)
-
-                log.msg("Applying done")
-
-            else:
-                raise SyncProtocolError("Bad action specification")
-
-    def _do_pull(self):
-        msg = {"cmd": "pull_request"}
-        msg["position"] = self._action_journal.get_position()
-        return msg
-
-    def _handle_pull_request(self, msg):
-        pos = msg["position"]
-        d = threads.deferToThread(self._make_response, pos)
-        d.addCallback(self.send_message)
-        d.addErrback(self._errback)
-
-    def _handle_pull_response(self, msg):
-        log.msg("Handling pull response")
-
-        status = msg["status"]
-        if status == self.UP_TO_DATE:
-            log.msg("Server up to date")
-
-        elif status == self.LACK_POSITION:
-            log.err("Unable to sync, remote server doesn't have necessary positions")
-
-        elif status == self.OK:
-            actions = msg["data"]
-            d = threads.deferToThread(self._do_apply, actions)
-            d.addErrback(self._errback)
-
-        else:
-            log.msg("Unknown status '{0}', unable to handle".format(status))
-
-    def handle_message(self, msg):
-        try:
-            cmd = msg["cmd"]
-            if cmd == "pull_request":
-                self._handle_pull_request(msg)
-
-            elif cmd == "pull_response":
-                self._handle_pull_response(msg)
-
-            else:
-                log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
-
-        except KeyError, key:
-            log.msg("Bad message: no key", key)
-
-        except Exception, exc:
-            log.err("Unable to handle message")
-
-    def send_message(self, msg):
-        assert 0, "Send message method is not implemented"
-
-    def pull(self):
-        log.msg("Making pull")
-        d = threads.deferToThread(self._do_pull)
-        d.addCallback(self.send_message)
-        d.addErrback(self._errback)
 
 
 class YamlSyncProtocol(LineReceiver, SyncProtocol):

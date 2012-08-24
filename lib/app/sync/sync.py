@@ -3,7 +3,7 @@
 from lib import database
 from lib.action import Action, ActionError
 from lib.app.sync.peer import Peer
-from twisted.internet import threads
+from twisted.internet import threads, reactor, task
 from twisted.python import log
 
 
@@ -16,9 +16,10 @@ class SyncApp(object):
         }
     }
 
-    def __init__(self, peers, db, action_journal):
+    def __init__(self, peers, db, action_journal, pull_period=10.0):
         self._database = db
         self._action_journal = action_journal
+        self._pull_period = pull_period
         self._active_peers = {} #TODO
         self._peers = {}
         self._dbpool = database.DatabasePool(self.DATABASES,
@@ -35,6 +36,9 @@ class SyncApp(object):
                 if not pdb.exists(pname, txn):
                     # add new peer entry
                     pdb.put(pname, "-1", txn)
+
+        l = task.LoopingCall(self.pull)
+        l.start(self._pull_period)
 
     def apply_actions(self, actions, peer):
         """
@@ -72,7 +76,6 @@ class SyncApp(object):
         """
 
         for pname in self._peers:
-            log.msg("Requesting pull from peer '{0}'".format(pname))
             peer = self._peers[pname]
             d = peer.connect(lambda x: self.apply_actions(x, peer))
             d.addCallback(self._peer_connected, peer)

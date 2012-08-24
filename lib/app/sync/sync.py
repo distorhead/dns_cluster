@@ -98,9 +98,9 @@ class SyncApp(object):
 
     def _got_peer_position(self, pos, peer):
         if not pos is None:
-            peer.connection.pull_request(pos)
+            peer.service.pull_request(pos)
         else:
-            peer.connection.pull_request(-1)
+            peer.service.pull_request(-1)
 
     def _errback(self, failure, desc):
         log.err(desc)

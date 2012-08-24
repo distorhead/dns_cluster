@@ -3,6 +3,10 @@
 import re
 
 
+def is_callable(obj):
+    return hasattr(obj, '__call__')
+
+
 def _make_split():
     common_chars = r"a-zA-Z0-9`~!@#$%^&*-=_+\(\)\{\}\[\]',./?:;<>"
     regex = re.compile(r'([{0}]+)|("[{0} \t\n]+")'.format(common_chars))

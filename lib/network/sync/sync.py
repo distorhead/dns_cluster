@@ -8,23 +8,26 @@ from twisted.protocols.basic import LineReceiver
 from twisted.python.threadpool import ThreadPool
 from twisted.python import log
 from lib.action import Action, ActionError
+from lib.common import is_callable
 
 
-class SyncProtocolError(Exception): pass
+#class SyncProtocolError(Exception): pass
 
 
-class SyncProtocol(object):
-    class ProtocolStatus:
-        OK = 0
-        LOST_POSITION = 1
+class ProtocolStatus:
+    OK = 0
+    LOST_POSITION = 1
 
+
+class SyncClient(object):
     class State:
         NORMAL = 0
         PULL_REQ_SENT = 1
         WAIT = 2
 
-    def __init__(self, actions_handler, **kwargs):
-        self._actions_handler = actions_handler
+    def __init__(self, actions_handler=None, message_sender=None, **kwargs):
+        self.actions_handler = actions_handler
+        self.message_sender = message_sender
         self._actions_relay = []
         self._actions_handler_run = False
         self._state = self.State.NORMAL
@@ -43,8 +46,9 @@ class SyncProtocol(object):
         self._state = self.State.NORMAL
 
     def _setup_action_handler(self, actions):
-        d = self._actions_handler(actions)
-        d.addCallback(self._on_actions_handled)
+        if is_callable(self.actions_handler):
+            d = self.actions_handler(actions)
+            d.addCallback(self._on_actions_handled)
 
     def _setup_state_watchdog_timer(self):
         if (self._state_watchdog_timer is None or 
@@ -65,6 +69,10 @@ class SyncProtocol(object):
                 self._state_watchdog_timer.cancel()
             self._state_watchdog_timer = None
 
+    def _send_message(self, msg):
+        if is_callable(self.message_sender):
+            self.message_sender(msg)
+
     def _on_actions_handled(self, _):
         if self._actions_relay:
             self._setup_action_handler(self._actions_relay)
@@ -77,7 +85,7 @@ class SyncProtocol(object):
             if not msg.has_key("status"):
                 return
 
-            if msg["status"] == self.ProtocolStatus.OK:
+            if msg["status"] == ProtocolStatus.OK:
                 for act_desc in msg.get("data", []):
                     if act_desc.has_key("action") and act_desc.has_key("position"):
                         self._actions_relay.append(act_desc)
@@ -89,7 +97,7 @@ class SyncProtocol(object):
 
                 self._state = self.State.NORMAL
 
-            elif msg["status"] == self.ProtocolStatus.LOST_POSITION:
+            elif msg["status"] == ProtocolStatus.LOST_POSITION:
                 log.msg("Unable to synchronize with peer '{0}': "
                         "peer lost requested position".format(self.peer.name))
                 self._state = self.State.NORMAL
@@ -119,7 +127,8 @@ class SyncProtocol(object):
                 log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
 
         except Exception, exc:
-            log.err("Unable to handle message", exc)
+            log.err("Unable to handle message")
+            log.err(exc)
 
     def pull_request(self, position):
         if self._allowed_state(self.State.NORMAL):
@@ -128,17 +137,23 @@ class SyncProtocol(object):
                 "cmd": "pull_request",
                 "position": position
             }
-            self.send_message(msg)
+            self._send_message(msg)
             self._state = self.State.PULL_REQ_SENT
             self._reset_state_watchdog_timer()
 
-    def send_message(self, msg):
-        assert 0, "Send message method is not implemented"
+
+class SyncServer(object):
+    class State:
+        NORMAL = 0
+        WAIT_SENT = 1
+
+    def __init__(self):
+        self._state = self.State.NORMAL
 
 
-class YamlSyncProtocol(LineReceiver, SyncProtocol):
-    def __init__(self, actions_handler):
-        SyncProtocol.__init__(self, actions_handler)
+class YamlMsgProtocol(LineReceiver):
+    def __init__(self, message_handler=None):
+        self.message_handler = message_handler
         self._received_lines = []
 
     def _parse_msg(self, msg_dump):
@@ -154,12 +169,16 @@ class YamlSyncProtocol(LineReceiver, SyncProtocol):
         except yaml.YAMLError, exc:
             log.err("Unable to make yaml dump from message:", exc)
 
+    def _handle_message(self, msg):
+        if is_callable(self.message_handler):
+            self.message_handler(msg)
+
     def _handle_message_str(self, msg_dump):
         msg_data = self._parse_msg(msg_dump)
 
         if isinstance(msg_data, dict):
             log.msg("Raw message:", repr(msg_dump))
-            self.handle_message(msg_data)
+            self._handle_message(msg_data)
 
     def lineReceived(self, line):
         if line == '':
@@ -180,17 +199,30 @@ class YamlSyncProtocol(LineReceiver, SyncProtocol):
 
 class SyncFactory(Factory):
     PROTOCOLS = {
-        "yaml": YamlSyncProtocol
+        "yaml": YamlMsgProtocol
         #TODO: binary
     }
 
-    def __init__(self, actions_handler=None, **kwargs):
-        self._actions_handler = actions_handler
+    def __init__(self, *args, **kwargs):
         protocol = kwargs.get("protocol", "yaml")
-        self._protocol = self.PROTOCOLS.get(protocol, YamlSyncProtocol)
+        self._protocol = self.PROTOCOLS.get(protocol, YamlMsgProtocol)
+
+
+class SyncClientFactory(SyncFactory):
+    def __init__(self, actions_handler, *args, **kwargs):
+        SyncFactory.__init__(self, *args, **kwargs)
+        self._actions_handler = actions_handler
 
     def buildProtocol(self, addr):
-        return self._protocol(self._actions_handler)
+        service = SyncClient()
+        service.actions_handler = self._actions_handler
+
+        p = self._protocol()
+        p.message_handler = service.handle_message
+        p.service = service
+        service.message_sender = p.send_message
+
+        return p
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 
-from lib.network.sync.sync import SyncFactory
+from lib.network.sync.sync import SyncClientFactory
 from twisted.internet import reactor, endpoints, defer
 
 
-#TODO: set self.connection to None when disconnected
 class Peer(object):
     def __init__(self, name, host, port):
         self.name = name
@@ -18,11 +17,13 @@ class Peer(object):
 
     def _on_connect(self, connection):
         self.connection = connection
-        self.connection.peer = self
         self.connection.connectionLost = self._on_disconnect
+        self.service = self.connection.service
+        self.service.peer = self
 
     def _on_disconnect(self, _):
         self.connection = None
+        self.service = None
 
     def connect(self, actions_handler):
         """
@@ -31,7 +32,7 @@ class Peer(object):
           established.
         """
         if self.connection is None:
-            d = self.endpoint.connect(SyncFactory(actions_handler))
+            d = self.endpoint.connect(SyncClientFactory(actions_handler))
             d.addCallback(self._on_connect)
             return d
         else:

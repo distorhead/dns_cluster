@@ -1,15 +1,15 @@
 # -*- coding: utf-8 -*-
 
-from lib.network.sync.sync import SyncClientFactory
+from lib.network.sync.protocol import SyncClientFactory
 from twisted.internet import reactor, endpoints, defer
 
 
-#TODO: move to network part
 class Peer(object):
     def __init__(self, name, host, port):
         self.name = name
         self.host = host
         self.port = port
+        self.position = None
 
         endpoint_spec = "tcp:host={host}:port={port}".format(
                                 host=self.host, port=self.port)
@@ -29,9 +29,9 @@ class Peer(object):
     def connect(self, actions_handler):
         """
         Connect to the peer. Method always returns deferred,
-          that fired up upon connection establishmentnnection
-          established.
+          that fired up when connection established.
         """
+
         if self.connection is None:
             d = self.endpoint.connect(SyncClientFactory(actions_handler))
             d.addCallback(self._on_connect)

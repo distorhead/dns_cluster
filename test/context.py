@@ -4,6 +4,11 @@ import os
 import shutil
 
 cfg = {
+    "server": {
+        "interface": "127.0.0.1",
+        "port": 1234
+    },
+
     "database": {
         "dbenv_homedir": "/var/lib/bind",
         "dbfile": "dlz.db"

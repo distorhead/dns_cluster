@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import yaml
+import lib.network.sync.peer
 
 from twisted.internet import reactor, threads
 from twisted.internet.protocol import Factory, Protocol
@@ -17,7 +18,7 @@ from lib.common import is_callable
 class Protocol:
     class Status:
         OK = 0
-        LOST_POSITION = 1
+        NO_POSITION = 1
 
     class Cmd:
        PULL_REQUEST = "pull_request" 
@@ -32,9 +33,8 @@ class SyncService(object):
         self.peer = None
         self._state = None
 
-    def _handle_cmd_pull_request(self, msg): pass
-    def _handle_cmd_actions(self, msg): pass
-    def _handle_cmd_wait(self, msg): pass
+    def _handle_cmd(self, cmd, msg):
+        assert 0, "Message handler doesn't implemented"
 
     def _allowed_state(self, *allowed_states):
         return self._state in allowed_states
@@ -49,18 +49,7 @@ class SyncService(object):
             if not msg.has_key("cmd"):
                 return
 
-            cmd = msg["cmd"]
-            if cmd == Protocol.Cmd.PULL_REQUEST:
-                self._handle_cmd_pull_request(msg)
-
-            elif cmd == Protocol.Cmd.ACTIONS:
-                self._handle_cmd_actions(msg)
-
-            elif cmd == Protocol.Cmd.WAIT:
-                self._handle_cmd_wait(msg)
-
-            else:
-                log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
+            self._handle_cmd(msg["cmd"], msg)
 
         except Exception, exc:
             log.err("Unable to handle message")
@@ -138,9 +127,9 @@ class SyncClient(SyncService):
 
                 self._state = self.State.NORMAL
 
-            elif msg["status"] == Protocol.Status.LOST_POSITION:
+            elif msg["status"] == Protocol.Status.NO_POSITION:
                 log.msg("Unable to synchronize with peer '{0}': "
-                        "peer lost requested position".format(self.peer.name))
+                        "peer doesn't have requested position".format(self.peer.name))
                 self._state = self.State.NORMAL
 
     def _handle_cmd_wait(self, msg):
@@ -151,7 +140,15 @@ class SyncClient(SyncService):
             self._state = self.State.WAIT
             self._reset_state_watchdog_timer()
 
-    def pull_request(self, position):
+    def _handle_cmd(self, cmd, msg):
+        if cmd == Protocol.Cmd.ACTIONS:
+            self._handle_cmd_actions(msg)
+        elif cmd == Protocol.Cmd.WAIT:
+            self._handle_cmd_wait(msg)
+        else:
+            log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
+
+    def send_pull_request(self, position):
         if self._allowed_state(self.State.NORMAL):
             log.msg("Requesting pull from peer '{0}'".format(self.peer.name))
             msg = {
@@ -171,13 +168,11 @@ class SyncServer(SyncService):
     def __init__(self, pull_handler=None, message_sender=None, **kwargs):
         SyncService.__init__(self, message_sender, **kwargs)
         self.pull_handler = pull_handler
-        self.message_sender = message_sender
         self._state = self.State.NORMAL
 
     def _setup_pull_handler(self, position):
         if is_callable(self.pull_handler):
-            d = self.pull_handler(position)
-            d.addCallback(self.push_actions)
+            self.pull_handler(position, self.peer)
 
     def _handle_cmd_pull_request(self, msg):
         if self._allowed_state(self.State.NORMAL):
@@ -186,13 +181,38 @@ class SyncServer(SyncService):
 
             self._setup_pull_handler(msg["position"])
 
-    def push_actions(self, actions):
-        #TODO
-        pass
+    def _handle_cmd(self, cmd, msg):
+        if cmd == Protocol.Cmd.PULL_REQUEST:
+            self._handle_cmd_pull_request(msg)
+        else:
+            log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
 
-    def do_wait(self):
-        #TODO
-        pass
+    def send_no_position(self):
+        if self._allowed_state(self.State.NORMAL):
+            log.msg("Sending no position to peer '{0}'".format(self.peer.host))
+            msg = {
+                "cmd": Protocol.Cmd.ACTIONS,
+                "status": Protocol.Status.NO_POSITION
+            }
+            self.send_message(msg)
+
+    def send_actions(self, actions):
+        log.msg("Sending actions to peer '{0}'".format(self.peer.host))
+        msg = {
+            "cmd": Protocol.Cmd.ACTIONS,
+            "status": Protocol.Status.OK,
+            "data": actions
+        }
+        self.send_message(msg)
+        self._state = self.State.NORMAL
+
+    def send_wait(self):
+        log.msg("Sending wait to peer '{0}'".format(self.peer.host))
+        msg = {
+            "cmd": Protocol.Cmd.WAIT,
+        }
+        self.send_message(msg)
+        self._state = self.State.WAIT_SENT
 
 
 class YamlMsgProtocol(LineReceiver):
@@ -249,7 +269,14 @@ class SyncFactory(Factory):
 
     def __init__(self, **kwargs):
         protocol = kwargs.get("protocol", "yaml")
-        self._protocol = self.PROTOCOLS.get(protocol, YamlMsgProtocol)
+        self.protocol = self.PROTOCOLS.get(protocol, YamlMsgProtocol)
+
+    def _build_protocol(self, service):
+        p = self.protocol()
+        p.message_handler = service.handle_message
+        p.service = service
+        service.message_sender = p.send_message
+        return p
 
 
 class SyncClientFactory(SyncFactory):
@@ -258,16 +285,23 @@ class SyncClientFactory(SyncFactory):
         self._actions_handler = actions_handler
 
     def buildProtocol(self, addr):
-        log.msg("ADDR:", repr(addr))
         service = SyncClient()
         service.actions_handler = self._actions_handler
+        return self._build_protocol(service)
 
-        p = self._protocol()
-        p.message_handler = service.handle_message
-        p.service = service
-        service.message_sender = p.send_message
 
-        return p
+class SyncServerFactory(SyncFactory):
+    def __init__(self, pull_handler, **kwargs):
+        SyncFactory.__init__(self, **kwargs)
+        self._pull_handler = pull_handler
+
+    def buildProtocol(self, addr):
+        service = SyncServer()
+        service.pull_handler = self._pull_handler
+        peer = lib.network.sync.peer.Peer(None, addr.host, addr.port)
+        service.peer = peer
+        peer.service = service
+        return self._build_protocol(service)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

@@ -161,13 +161,17 @@ class journal(object):
         for key in range(pos + 1, last_pos + 1):
             act = adb.get(str(key), None, txn)
             if not act is None:
-                res.append((key, act))
+                res.append({"action": act, "position": key})
 
         return res
 
     def position_exists(self, pos, txn=None):
-        adb = self.dbpool().action.dbhandle()
-        return adb.exists(str(pos), txn)
+        if pos == -1:
+            # such position means "any position" from begin
+            return True
+        else:
+            adb = self.dbpool().action.dbhandle()
+            return adb.exists(str(pos), txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

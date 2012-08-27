@@ -49,7 +49,9 @@ class SyncApp(object):
         self.server_endpoint = endpoints.serverFromString(reactor, endpoint_spec)
 
     def listen(self):
-        self.server_endpoint.listen(SyncServerFactory(self.retrieve_actions))
+        d = self.server_endpoint.listen(SyncServerFactory(self.retrieve_actions))
+        #TODO
+        d.addCall
 
     def database_updated(self):
         log.msg("Updating active peers:", self._active_peers)
@@ -73,9 +75,9 @@ class SyncApp(object):
             d.addErrback(self._errback,
                          "Error while connecting to peer '{0}'".format(peer.name))
 
-    def retrieve_actions(self, position, peer):
+    def retrieve_actions(self, peer_name, position):
         """
-        Get actions from specified position.
+        Get actions of peer from specified position.
         Method do not blocks.
         """
 
@@ -152,6 +154,16 @@ class SyncApp(object):
             if not self._action_journal.position_exists(position, txn):
                 return None
             else:
+                #TODO:
+                # Update peer position: Pnew = Pold + len(actions)
+                # The big problem here:
+                #   We doesn't know peer's name needed to update pdb record.
+
+                # Solve:
+                #   Add to protocol identification header.
+
+                pdb = self._dbpool.peer.dbhandle()
+
                 cur_pos = self._action_journal.get_position(txn)
                 actions = self._action_journal.get_since_position(
                           position, self.PUSH_BATCH_SIZE, txn)

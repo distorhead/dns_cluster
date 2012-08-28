@@ -19,7 +19,8 @@ class SyncApp(object):
         }
     }
 
-    def __init__(self, interface, port, peers, db, action_journal, **kwargs):
+    def __init__(self, name, interface, port, peers, db, action_journal, **kwargs):
+        self._name = name
         self._interface = interface
         self._port = port
         self._database = db
@@ -37,7 +38,10 @@ class SyncApp(object):
                 pdesc = peers[pname]
                 peer = Peer(pname, client_host=pdesc["host"],
                                    client_port=pdesc["port"])
-                self._peers[peer.name] = peer
+                self._peers[peer.name] = {
+                    "peer": peer,
+                    "pull_in_progress": False
+                }
 
                 if not pdb.exists(pname, txn):
                     # add new peer entry
@@ -70,10 +74,11 @@ class SyncApp(object):
             d.addCallback(self._client_ident_request, service)
 
         else:
-            self._peers[name].setup_server_connection(service.protocol)
+            peer = self._peers[name]["peer"]
+            peer.setup_server_connection(service.protocol)
             service.send_ident_success()
             d = service.register_event('pull_request')
-            d.addCallback(self._client_pull_request, self._peers[name])
+            d.addCallback(self._client_pull_request, peer)
 
 
     def _client_pull_request(self, position, peer):
@@ -132,13 +137,40 @@ class SyncApp(object):
         Method do not blocks.
         """
 
-        for _, peer in self._peers.iteritems():
-            d = peer.connect()
-            d.addCallback(self._peer_connected, peer)
-            d.addErrback(self._errback,
-                         "Error while connecting to peer '{0}'".format(peer.name))
+        for _, pdesc in self._peers.iteritems():
+            peer = pdesc["peer"]
+            if not pdesc["pull_in_progress"]:
+                d = peer.connect()
+                d.addCallback(self._peer_connected, peer)
+                
+                def errback(failure):
+                    pdesc["pull_in_progress"] = False
+                    raise failure
+
+                d.addErrback(errback)
+                d.addErrback(self._errback,
+                             "Error while connecting to peer '{0}'".format(peer.name))
+                pdesc["pull_in_progress"] = True
 
     def _peer_connected(self, connection, peer):
+        log.msg("Connected to the peer '{0}'".format(peer.name))
+
+        if not peer.client.service.is_identified():
+            peer.client.service.send_ident(self._name)
+            d = peer.client.service.register_event('ident_response')
+            d.addCallback(self._on_ident_response, peer)
+        else:
+            self._do_pull_request(peer)
+
+    def _on_ident_response(self, identified, peer):
+        if identified:
+            self._do_pull_request(peer)
+        else:
+            log.err("Unable to pull from peer '{0}': identification failed".format(
+                        peer.name))
+            self._peers[peer.name]["pull_in_progress"] = False
+
+    def _do_pull_request(self, peer):
         d = threads.deferToThread(self._get_peer_position, peer)
         d.addCallback(self._got_peer_position, peer)
         d.addErrback(self._errback,
@@ -158,10 +190,10 @@ class SyncApp(object):
         return pos
 
     def _got_peer_position(self, pos, peer):
+        log.msg("Got server position on peer '{0}': {1}".format(peer.name, pos))
         peer.client.service.send_pull_request(pos)
-        d = peer.client.service.register_event('actions')
+        d = peer.client.service.register_event('actions_received')
         d.addCallback(self._on_actions_received, peer)
-
 
     def _on_actions_received(self, actions, peer):
         """
@@ -170,7 +202,8 @@ class SyncApp(object):
         """
 
         d = threads.deferToThread(self._do_apply_actions, actions, peer)
-        d.addErrback(self._actions_apply_failure)
+        d.addCallback(self._actions_applied, peer)
+        d.addErrback(self._actions_apply_failure, peer)
         d.addErrback(self._errback, "Error while applying actions from peer "
                                     "'{0}'".format(peer.name))
 
@@ -185,7 +218,11 @@ class SyncApp(object):
                 act.apply(self._database, txn)
                 pdb.put(peer.name, str(pos), txn)
 
-    def _actions_apply_failure(self, failure):
+    def _actions_applied(self, _, peer):
+        self._do_pull_request(peer)
+
+    def _actions_apply_failure(self, failure, peer):
+        self._peers[peer.name]["pull_in_progress"] = False
         failure.trap(ActionError)
         #TODO: real failure handler
         log.msg("Unable to apply action", failure)
@@ -199,7 +236,7 @@ class SyncApp(object):
             d = threads.deferToThread(self._get_peer_update, peer, pos)
             d.addCallback(self._got_peer_update, peer, pos)
             d.addErrback(self._errback, "Error while getting update for peer "
-                                        "'{0}'".format(peer.host))
+                                        "'{0}'".format(peer.name))
 
     def _get_peer_update(self, peer, position):
         """
@@ -208,7 +245,7 @@ class SyncApp(object):
 
         with self._database.transaction() as txn:
             cur_pos = self._action_journal.get_position(txn)
-            actions = self._action_journal.get_since_position(peer.position,
+            actions = self._action_journal.get_since_position(position,
                       self.ACTIONS_BATCH_SIZE, txn)
             return (cur_pos, actions)
 
@@ -221,6 +258,8 @@ class SyncApp(object):
         else:
             log.msg("Got updates for peer '{0}'".format(peer.name))
             peer.server.service.send_actions(actions)
+            d = peer.server.service.register_event('pull_request')
+            d.addCallback(self._client_pull_request, peer)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

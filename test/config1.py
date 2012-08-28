@@ -1,5 +1,6 @@
 cfg = {
     "server": {
+        "name": "foo",
         "interface": "127.0.0.1",
         "port": 4321
     },

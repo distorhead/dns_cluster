@@ -13,7 +13,8 @@ from twisted.internet import reactor
 log.startLogging(sys.stdout)
 
 
-sa = SyncApp(cfg["server"]["interface"],
+sa = SyncApp(cfg["server"]["name"],
+             cfg["server"]["interface"],
              cfg["server"]["port"],
              cfg["peers"], database, a_journal)
 pdb = sa._dbpool.peer.dbhandle()
@@ -31,4 +32,5 @@ def s():
     global sa
     global reactor
     sa.listen()
+    sa.start_pull()
     reactor.run()

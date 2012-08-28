@@ -100,7 +100,7 @@ class SyncClient(SyncService):
     def __init__(self, **kwargs):
         SyncService.__init__(self, **kwargs)
         self._state = self.State.CONNECTED
-        self._es = EventStorage('actions', 'ident_response')
+        self._es = EventStorage('actions_received', 'ident_response')
         self.peer = None
 
     def _handle_cmd_ident(self, msg):
@@ -135,13 +135,13 @@ class SyncClient(SyncService):
                         valid_actions.append(act_desc)
 
                 self._state = self.State.IDENTIFIED
-                d = self._es.retrieve_event('actions')
+                d = self._es.retrieve_event('actions_received')
                 if not d is None:
                     d.callback(valid_actions)
 
             elif msg["status"] == Protocol.Status.NO_POSITION:
                 self._state = self.State.IDENTIFIED
-                d = self._es.retrieve_event('actions')
+                d = self._es.retrieve_event('actions_received')
                 if not d is None:
                     d.callback(None)
 
@@ -165,7 +165,6 @@ class SyncClient(SyncService):
         return self._es.register_event(event)
 
     def send_pull_request(self, position):
-        print self._state
         if self._allowed_state(self.State.IDENTIFIED):
             log.msg("Requesting pull from peer '{0}'".format(self.peer.name))
             msg = {
@@ -175,16 +174,19 @@ class SyncClient(SyncService):
             self.send_message(msg)
             self._state = self.State.PULL_REQ_SENT
 
-    def send_ident(self):
+    def send_ident(self, name):
         if self._allowed_state(self.State.CONNECTED):
-            log.msg("Sending identification info from peer '{0}'".format(
+            log.msg("Sending identification info to peer '{0}'".format(
                         self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.IDENT,
-                "name": self.peer.name
+                "name": name
             }
             self.send_message(msg)
             self._state = self.State.IDENT_SENT
+
+    def is_identified(self):
+        return self._state == self.State.IDENTIFIED
 
 
 class SyncServer(SyncService):

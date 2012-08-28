@@ -29,7 +29,6 @@ class Peer(object):
         self.name = name
         self.client_host = kwargs.get('client_host', None)
         self.client_port = kwargs.get('client_port', None)
-        self.position = None
         self.client = None
         self.server = None
 

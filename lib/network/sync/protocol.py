@@ -4,6 +4,7 @@ import yaml
 
 from zope.interface import implements
 from twisted.internet.protocol import Factory
+from twisted.internet.defer import Deferred
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 from lib.action import Action, ActionError
@@ -80,16 +81,23 @@ class SyncFactory(Factory):
 
 
 class SyncClientFactory(SyncFactory):
-    def __init__(self, **kwargs):
-        SyncFactory.__init__(self, **kwargs)
-
     def buildProtocol(self, addr):
         return self._build_protocol(SyncClient())
 
 
 class SyncServerFactory(SyncFactory):
+    def __init__(self, **kwargs):
+        SyncFactory.__init__(self, **kwargs)
+        self.connection_made_deferred = Deferred()
+
     def buildProtocol(self, addr):
-        return self._build_protocol(SyncServer())
+        p = self._build_protocol(SyncServer())
+
+        def connectionMade():
+            self.connection_made_deferred.callback(p)
+
+        p.connectionMade = connectionMade
+        return p
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

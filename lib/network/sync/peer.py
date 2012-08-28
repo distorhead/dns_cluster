@@ -2,30 +2,36 @@
 
 from twisted.internet import reactor, endpoints, defer
 from twisted.python import log
-from lib.network.sync.protocol import SyncClientFactory
+from lib.network.sync.protocol import SyncClientFactory, SyncServerFactory
 
 
 class Peer(object):
-
     class Connection(object):
         def __init__(self, connection, service):
             self.connection = connection
             self.service = service
 
-    def __init__(self, name, host, port):
+    @staticmethod
+    def listen(interface, port):
+        endpoint_spec = "tcp:interface={interface}:port={port}".format(
+                        interface=interface, port=port)
+        ep = endpoints.serverFromString(reactor, endpoint_spec)
+        f = SyncServerFactory()
+        ep.listen(f)
+        d = f.connection_made_deferred
+        d.addErrback(log.err)
+        return d
+
+    def __init__(self, name, **kwargs):
         """
         Create new peer with name 'name'. 'host' and 'port' 
           used for establishing client connection.
         """
 
         self.name = name
-        self.host = host
-        self.port = port
+        self.client_host = kwargs.get('client_host', None)
+        self.client_port = kwargs.get('client_port', None)
         self.position = None
-
-        endpoint_spec = "tcp:host={host}:port={port}".format(
-                                host=self.host, port=self.port)
-        self.endpoint = endpoints.clientFromString(reactor, endpoint_spec)
         self.client = None
         self.server = None
 
@@ -56,11 +62,15 @@ class Peer(object):
         """
 
         if self.client is None:
-            d = self.endpoint.connect(SyncClientFactory())
+            endpoint_spec = "tcp:host={host}:port={port}".format(
+                             host=self.client_host, port=self.client_port)
+            ep = endpoints.clientFromString(reactor, endpoint_spec)
+            d = ep.connect(SyncClientFactory())
             d.addCallback(self.setup_client_connection)
+            d.addErrback(log.err)
             return d
         else:
-            return defer.succeed(self)
+            return defer.succeed(self.client.connection)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

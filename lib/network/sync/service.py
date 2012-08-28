@@ -62,6 +62,12 @@ class SyncService(object):
     def set_protocol(self, protocol):
         self.protocol = IProtocol(protocol)
 
+    def remote_addr(self):
+        if not self.protocol is None:
+            return self.protocol.transport.getPeer()
+        else:
+            assert 0, "protocol attribute is not set"
+
     def send_message(self, msg):
         if not self.protocol is None:
             self.protocol.send_message(msg)
@@ -193,7 +199,6 @@ class SyncServer(SyncService):
         SyncService.__init__(self, **kwargs)
         self._state = self.State.CONNECTED
         self._es = EventStorage('pull_request',
-                                'position_update',
                                 'ident_request')
         self.peer = None
         #TODO: watchdog timer to reset states
@@ -203,7 +208,7 @@ class SyncServer(SyncService):
             if not msg.has_key("name"):
                 return
 
-            self._state = IDENT_RECEIVED
+            self._state = self.State.IDENT_RECEIVED
             d = self._es.retrieve_event('ident_request')
             if not d is None:
                 d.callback(msg["name"])
@@ -248,7 +253,7 @@ class SyncServer(SyncService):
                 "data": actions
             }
             self.send_message(msg)
-            self._state = self.State.ACTIONS_SENT
+            self._state = self.State.IDENTIFIED
 
     def send_wait(self):
         if self._allowed_state(self.State.PULL_REQ_RECEIVED):
@@ -261,8 +266,9 @@ class SyncServer(SyncService):
 
     def send_ident_success(self):
         if self._allowed_state(self.State.IDENT_RECEIVED):
-            log.msg("Sending identification success to peer '{0}'".format(
-                    self.peer.name))
+            ra = self.remote_addr()
+            log.msg("Sending identification success to '{0}:{1}'".format(
+                        ra.host, ra.port))
             msg = {
                 "cmd": Protocol.Cmd.IDENT,
                 "status": Protocol.Status.OK
@@ -272,8 +278,9 @@ class SyncServer(SyncService):
 
     def send_ident_fail(self):
         if self._allowed_state(self.State.IDENT_RECEIVED):
-            log.msg("Sending identification failure to peer '{0}'".format(
-                    self.peer.name))
+            ra = self.remote_addr()
+            log.msg("Sending identification failure to '{0}:{1}'".format(
+                        ra.host, ra.port))
             msg = {
                 "cmd": Protocol.Cmd.IDENT,
                 "status": Protocol.Status.FORBIDDEN

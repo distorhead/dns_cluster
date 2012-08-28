@@ -10,13 +10,8 @@ from lib.app.sync.sync import SyncApp
 from twisted.internet import reactor
 
 
-#sa = SyncApp(cfg["server"]["interface"],
-             #cfg["server"]["port"],
-             #cfg["peers"], database, a_journal)
-#pdb = sa._dbpool.peer.dbhandle()
-
 log.startLogging(sys.stdout)
-p = Peer('foo', '127.0.0.1', 4321)
+p = Peer('foo', client_host='127.0.0.1', client_port=4321)
 
 def on_error(fail):
     log.err(fail)

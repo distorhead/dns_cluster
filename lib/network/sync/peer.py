@@ -12,15 +12,13 @@ class Peer(object):
             self.service = service
 
     @staticmethod
-    def listen(interface, port):
+    def listen(interface, port, connectionMade):
         endpoint_spec = "tcp:interface={interface}:port={port}".format(
                         interface=interface, port=port)
         ep = endpoints.serverFromString(reactor, endpoint_spec)
         f = SyncServerFactory()
         ep.listen(f)
-        d = f.connection_made_deferred
-        d.addErrback(log.err)
-        return d
+        f.connectionMade = connectionMade
 
     def __init__(self, name, **kwargs):
         """
@@ -67,7 +65,6 @@ class Peer(object):
             ep = endpoints.clientFromString(reactor, endpoint_spec)
             d = ep.connect(SyncClientFactory())
             d.addCallback(self.setup_client_connection)
-            d.addErrback(log.err)
             return d
         else:
             return defer.succeed(self.client.connection)

@@ -110,7 +110,8 @@ class journal(object):
         "action": {
             "type": database.bdb.DB_BTREE,
             "flags": 0,
-            "open_flags": database.bdb.DB_CREATE
+            "open_flags": database.bdb.DB_CREATE,
+            "seq_spec": {database.Database.SEQUENCE_KEY: 1}
         }
     }
 
@@ -166,12 +167,8 @@ class journal(object):
         return res
 
     def position_exists(self, pos, txn=None):
-        if pos == -1:
-            # such position means "any position" from begin
-            return True
-        else:
-            adb = self.dbpool().action.dbhandle()
-            return adb.exists(str(pos), txn)
+        adb = self.dbpool().action.dbhandle()
+        return adb.exists(str(pos), txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

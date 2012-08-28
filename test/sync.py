@@ -10,60 +10,25 @@ from lib.app.sync.sync import SyncApp
 from twisted.internet import reactor
 
 
-#sa = SyncApp(cfg["server"]["interface"],
-             #cfg["server"]["port"],
-             #cfg["peers"], database, a_journal)
-#pdb = sa._dbpool.peer.dbhandle()
-
 log.startLogging(sys.stdout)
-p = Peer('foo', '127.0.0.1', 4321)
-
-def on_error(fail):
-    log.err(fail)
 
 
-def actions_received(res, service):
-    if res is None:
-        log.msg('No position')
-    else:
-        log.msg("Actions:", res)
+sa = SyncApp(cfg["server"]["interface"],
+             cfg["server"]["port"],
+             cfg["peers"], database, a_journal)
+pdb = sa._dbpool.peer.dbhandle()
 
 
-def ident_response_received_cb(res, service):
-    if res:
-        log.msg('Identification passed! service =', service)
-        service.send_pull_request(0)
-        d = service.register_event('actions')
-        d.addCallback(actions_received, service)
-    else:
-        log.msg('Identification failed!')
+def sighandler(signum, _):
+    print 'sighandler({0}, {1}) {{'.format(signum, _)
+    sa.database_updated()
+    print '}} sighandler({0}, {1})'.format(signum, _)
+
+signal.signal(signal.SIGUSR2, sighandler)
 
 
-def on_connect(conn):
-    log.msg('on_connect {')
-    conn.service.send_ident()
-    d = conn.service.register_event('ident_response')
-    d.addCallback(ident_response_received_cb, conn.service)
-    log.msg('} on_connect')
-
-d = p.connect()
-d.addCallback(on_connect)
-d.addErrback(on_error)
-reactor.run()
-
-
-
-#def sighandler(signum, _):
-    #print 'sighandler({0}, {1}) {{'.format(signum, _)
-    #sa.database_updated()
-    #print '}} sighandler({0}, {1})'.format(signum, _)
-
-
-#signal.signal(signal.SIGUSR2, sighandler)
-
-
-#def s():
-    #global sa
-    #global reactor
-    #sa.listen()
-    #reactor.run()#
+def s():
+    global sa
+    global reactor
+    sa.listen()
+    reactor.run()

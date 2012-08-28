@@ -4,12 +4,12 @@ import yaml
 
 from zope.interface import implements
 from twisted.internet.protocol import Factory
-from twisted.internet.defer import Deferred
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 from lib.action import Action, ActionError
 from lib.network.sync.sync import IProtocol, IService
 from lib.network.sync.service import SyncClient, SyncServer
+from lib.common import is_callable
 
 
 class YamlMsgProtocol(LineReceiver):
@@ -88,15 +88,19 @@ class SyncClientFactory(SyncFactory):
 class SyncServerFactory(SyncFactory):
     def __init__(self, **kwargs):
         SyncFactory.__init__(self, **kwargs)
-        self.connection_made_deferred = Deferred()
+        self.connectionMade = kwargs.get("connectionMade", None)
 
     def buildProtocol(self, addr):
         p = self._build_protocol(SyncServer())
 
+        # Black Magic
+        old_connectionMade = p.connectionMade
         def connectionMade():
-            self.connection_made_deferred.callback(p)
-
+            if is_callable(self.connectionMade):
+                self.connectionMade(p)
+            old_connectionMade()
         p.connectionMade = connectionMade
+
         return p
 
 

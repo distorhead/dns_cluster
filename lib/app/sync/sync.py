@@ -20,7 +20,6 @@ class SyncApp(object):
     }
 
     def __init__(self, interface, port, peers, db, action_journal, **kwargs):
-        #FIXME
         self._interface = interface
         self._port = port
         self._database = db
@@ -36,169 +35,110 @@ class SyncApp(object):
         with self._database.transaction() as txn:
             for pname in peers:
                 pdesc = peers[pname]
-                peer = Peer(pname, pdesc["host"], pdesc["port"])
+                peer = Peer(pname, client_host=pdesc["host"],
+                                   client_port=pdesc["port"])
                 self._peers[peer.name] = peer
 
                 if not pdb.exists(pname, txn):
                     # add new peer entry
-                    pdb.put(pname, "-1", txn)
+                    pdb.put(pname, "0", txn)
 
+    def _errback(self, failure, desc):
+        log.err(desc)
+        log.err(failure)
+
+
+
+    def start_pull(self):
         l = task.LoopingCall(self.pull)
         l.start(self._pull_period)
-        endpoint_spec = "tcp:interface={interface}:port={port}".format(
-                        interface=self._interface, port=self._port)
-        self.server_endpoint = endpoints.serverFromString(reactor, endpoint_spec)
 
     def listen(self):
-        #FIXME
-        d = self.server_endpoint.listen(SyncServerFactory(self.retrieve_actions))
-        #TODO
-        d.addCall
+        d = Peer.listen(self._interface, self._port, self._client_connected)
 
-    def database_updated(self):
-        #FIXME
-        log.msg("Updating active peers:", self._active_peers)
-        while self._active_peers:
-            peer = self._active_peers.pop(0)
-            d = threads.deferToThread(self._get_peer_update, peer)
-            d.addCallback(self._got_peer_update, peer)
-            d.addErrback(self._errback, "Error while getting update for peer "
-                                        "'{0}'".format(peer.host))
+    def _client_connected(self, conn):
+        log.msg("New client connected")
+        service = conn.service
+        d = service.register_event('ident_request')
+        d.addCallback(self._client_ident_request, service)
 
-    def pull(self):
-        """
-        Initiate pull requests to all known cluster servers.
-        Method do not blocks.
-        """
+    def _client_ident_request(self, name, service):
+        if not self._peers.has_key(name):
+            # unknown peer name
+            service.send_ident_fail()
+            d = service.register_event('ident_request')
+            d.addCallback(self._client_ident_request, service)
 
-        #FIXME
-        for pname in self._peers:
-            peer = self._peers[pname]
-            d = peer.connect(self.apply_actions)
-            d.addCallback(self._peer_connected, peer)
-            d.addErrback(self._errback,
-                         "Error while connecting to peer '{0}'".format(peer.name))
+        else:
+            self._peers[name].setup_server_connection(service.protocol)
+            service.send_ident_success()
+            d = service.register_event('pull_request')
+            d.addCallback(self._client_pull_request, self._peers[name])
 
-    def retrieve_actions(self, peer_name, position):
-        """
-        Get actions of peer from specified position.
-        Method do not blocks.
-        """
-        #FIXME
 
+    def _client_pull_request(self, position, peer):
         d = threads.deferToThread(self._do_retrieve_actions, position, peer)
         d.addCallback(self._actions_retrieved, position, peer)
         d.addErrback(self._errback, "Error while retrieving actions for peer "
                                     "'{0}' from position {1}".format(
-                                    peer.host, position))
-
-    def apply_actions(self, actions, peer):
-        """
-        Apply actions from specified peer.
-        Method returns deferred activated when actions applied.
-        """
-
-        #FIXME
-        d = threads.deferToThread(self._do_apply_actions, actions, peer)
-        d.addErrback(self._actions_apply_failure)
-        d.addErrback(self._errback, "Error while handling actions from peer "
-                                    "'{0}'".format(peer.name))
-        return d
-
-
-    def _do_apply_actions(self, actions, peer):
-        #FIXME
-        log.msg("Applying actions from peer '{0}'".format(peer.name))
-        pdb = self._dbpool.peer.dbhandle()
-        for act_desc in actions:
-            act_dump = act_desc["action"]
-            act = Action.unserialize(act_dump)
-            pos = act_desc["position"]
-            with self._database.transaction() as txn:
-                act.apply(self._database, txn)
-                self._action_journal.record_action(act, txn)
-                pdb.put(peer.name, str(pos), txn)
-
-    def _actions_apply_failure(self, failure):
-        #FIXME
-        failure.trap(ActionError)
-        #TODO: real failure handler
-        log.msg("Unable to apply action", failure)
-
-    def _get_peer_update(self, peer):
-        """
-        Blocking call to DB, should be called from thread pool.
-        """
-
-        #FIXME
-        with self._database.transaction() as txn:
-            cur_pos = self._action_journal.get_position(txn)
-            actions = self._action_journal.get_since_position(peer.position,
-                      self.ACTIONS_BATCH_SIZE, txn)
-            return (cur_pos, actions)
-
-    def _got_peer_update(self, res, peer):
-        #FIXME
-        cur_pos, actions = res
-
-        if len(actions) == 0:
-            log.msg("No updates for peer '{0}'".format(peer.host))
-            self._active_peers.append(peer)
-        elif actions[-1]["position"] == cur_pos:
-            log.msg("Got updates for peer '{0}', peer stay active".format(
-                        peer.host))
-            peer.service.send_actions(actions)
-            peer.service.send_wait()
-            peer.position = cur_pos
-            self._active_peers.append(peer)
-        else:
-            log.msg("Got updates for peer '{0}'".format(peer.host))
-            peer.service.send_actions(actions)
-            peer.position = actions[-1]["position"]
+                                    peer.name, position))
 
     def _do_retrieve_actions(self, position, peer):
-        #FIXME
         log.msg("Retrieving actions for peer '{0}' from position {1}".format(
-                peer.host, position))
+                peer.name, position))
 
         with self._database.transaction() as txn:
-            if not self._action_journal.position_exists(position, txn):
+            cur_pos = self._action_journal.get_position(txn)
+            if cur_pos == position:
+                return (cur_pos, [])
+            elif not self._action_journal.position_exists(position + 1, txn):
                 return None
             else:
-                #TODO:
-                # Update peer position: Pnew = Pold + len(actions)
-                # The big problem here:
-                #   We doesn't know peer's name needed to update pdb record.
-
-                # Solve:
-                #   Add to protocol identification header.
-
-                pdb = self._dbpool.peer.dbhandle()
-
-                cur_pos = self._action_journal.get_position(txn)
                 actions = self._action_journal.get_since_position(
-                          position, self.ACTIONS_BATCH_SIZE, txn)
+                                    position,
+                                    self.ACTIONS_BATCH_SIZE,
+                                    txn
+                                )
                 return (cur_pos, actions)
 
     def _actions_retrieved(self, res, position, peer):
-        #FIXME
-        log.msg("Actions retrieved")
         if res is None:
-            peer.service.send_no_position()
+            log.msg("No such position '{0}' needed for peer '{1}'".format(position,
+                    peer.name))
+            peer.server.service.send_no_position()
+            d = peer.server.service.register_event('pull_request')
+            d.addCallback(self._client_pull_request, peer)
         else:
             cur_pos, actions = res
 
             actions_len = len(actions)
             if actions_len != 0:
-                peer.service.send_actions(actions)
-                peer.position = actions[-1]["position"]
+                log.msg("Actions for peer '{0}' retrieved".format(peer.name))
+                peer.server.service.send_actions(actions)
+                d = peer.server.service.register_event('pull_request')
+                d.addCallback(self._client_pull_request, peer)
+
             if actions_len == 0 or cur_pos == actions[-1]["position"]:
-                peer.service.send_wait()
-                peer.position = cur_pos
-                self._active_peers.append(peer)
+                log.msg("Adding active peer '{0}' with position '{1}'".format(
+                        peer.name, cur_pos))
+                peer.server.service.send_wait()
+                self._active_peers.append((peer, cur_pos))
+
+
+
+    def pull(self):
+        """
+        Initiate pull requests to all known cluster peers.
+        Method do not blocks.
+        """
+
+        for _, peer in self._peers.iteritems():
+            d = peer.connect()
+            d.addCallback(self._peer_connected, peer)
+            d.addErrback(self._errback,
+                         "Error while connecting to peer '{0}'".format(peer.name))
 
     def _peer_connected(self, connection, peer):
-        #FIXME
         d = threads.deferToThread(self._get_peer_position, peer)
         d.addCallback(self._got_peer_position, peer)
         d.addErrback(self._errback,
@@ -209,21 +149,78 @@ class SyncApp(object):
         Blocking call to DB, should be called from thread pool.
         """
 
-        #FIXME
         pdb = self._dbpool.peer.dbhandle()
-        return int(pdb.get(peer.name, None))
+        pos = pdb.get(peer.name, None)
+        if not pos is None:
+            pos = int(pos)
+        else:
+            pos = 0
+        return pos
 
     def _got_peer_position(self, pos, peer):
-        #FIXME
-        if not pos is None:
-            peer.service.send_pull_request(pos)
-        else:
-            peer.service.send_pull_request(-1)
+        peer.client.service.send_pull_request(pos)
+        d = peer.client.service.register_event('actions')
+        d.addCallback(self._on_actions_received, peer)
 
-    def _errback(self, failure, desc):
-        #FIXME
-        log.err(desc)
-        log.err(failure)
+
+    def _on_actions_received(self, actions, peer):
+        """
+        Apply actions from specified peer.
+        Method do not blocks.
+        """
+
+        d = threads.deferToThread(self._do_apply_actions, actions, peer)
+        d.addErrback(self._actions_apply_failure)
+        d.addErrback(self._errback, "Error while applying actions from peer "
+                                    "'{0}'".format(peer.name))
+
+    def _do_apply_actions(self, actions, peer):
+        log.msg("Applying actions from peer '{0}'".format(peer.name))
+        pdb = self._dbpool.peer.dbhandle()
+        for act_desc in actions:
+            act_dump = act_desc["action"]
+            act = Action.unserialize(act_dump)
+            pos = act_desc["position"]
+            with self._database.transaction() as txn:
+                act.apply(self._database, txn)
+                pdb.put(peer.name, str(pos), txn)
+
+    def _actions_apply_failure(self, failure):
+        failure.trap(ActionError)
+        #TODO: real failure handler
+        log.msg("Unable to apply action", failure)
+
+
+
+    def database_updated(self):
+        log.msg("Updating active peers:", self._active_peers)
+        while self._active_peers:
+            peer, pos = self._active_peers.pop(0)
+            d = threads.deferToThread(self._get_peer_update, peer, pos)
+            d.addCallback(self._got_peer_update, peer, pos)
+            d.addErrback(self._errback, "Error while getting update for peer "
+                                        "'{0}'".format(peer.host))
+
+    def _get_peer_update(self, peer, position):
+        """
+        Blocking call to DB, should be called from thread pool.
+        """
+
+        with self._database.transaction() as txn:
+            cur_pos = self._action_journal.get_position(txn)
+            actions = self._action_journal.get_since_position(peer.position,
+                      self.ACTIONS_BATCH_SIZE, txn)
+            return (cur_pos, actions)
+
+    def _got_peer_update(self, res, peer, position):
+        cur_pos, actions = res
+
+        if len(actions) == 0:
+            log.msg("No updates for peer '{0}'".format(peer.name))
+            self._active_peers.append((peer, position))
+        else:
+            log.msg("Got updates for peer '{0}'".format(peer.name))
+            peer.server.service.send_actions(actions)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

@@ -44,21 +44,5 @@ def on_connect(conn):
 d = p.connect()
 d.addCallback(on_connect)
 d.addErrback(on_error)
+
 reactor.run()
-
-
-
-#def sighandler(signum, _):
-    #print 'sighandler({0}, {1}) {{'.format(signum, _)
-    #sa.database_updated()
-    #print '}} sighandler({0}, {1})'.format(signum, _)
-
-
-#signal.signal(signal.SIGUSR2, sighandler)
-
-
-#def s():
-    #global sa
-    #global reactor
-    #sa.listen()
-    #reactor.run()#

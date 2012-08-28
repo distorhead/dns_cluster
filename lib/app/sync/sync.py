@@ -122,8 +122,7 @@ class SyncApp(object):
                 peer.server.service.send_actions(actions)
                 d = peer.server.service.register_event('pull_request')
                 d.addCallback(self._client_pull_request, peer)
-
-            if actions_len == 0 or cur_pos == actions[-1]["position"]:
+            else:
                 log.msg("Adding active peer '{0}' with position '{1}'".format(
                         peer.name, cur_pos))
                 peer.server.service.send_wait()
@@ -193,19 +192,23 @@ class SyncApp(object):
         log.msg("Got server position on peer '{0}': {1}".format(peer.name, pos))
         peer.client.service.send_pull_request(pos)
         d = peer.client.service.register_event('actions_received')
-        d.addCallback(self._on_actions_received, peer)
+        d.addCallback(self._on_actions_received, peer, pos)
 
-    def _on_actions_received(self, actions, peer):
+    def _on_actions_received(self, actions, peer, pos):
         """
         Apply actions from specified peer.
         Method do not blocks.
         """
 
-        d = threads.deferToThread(self._do_apply_actions, actions, peer)
-        d.addCallback(self._actions_applied, peer)
-        d.addErrback(self._actions_apply_failure, peer)
-        d.addErrback(self._errback, "Error while applying actions from peer "
-                                    "'{0}'".format(peer.name))
+        if actions is None:
+            log.msg("No position {0} on peer '{1}'".format(pos, peer.name))
+            self._peers[peer.name]["pull_in_progress"] = False
+        else:
+            d = threads.deferToThread(self._do_apply_actions, actions, peer)
+            d.addCallback(self._actions_applied, peer)
+            d.addErrback(self._actions_apply_failure, peer)
+            d.addErrback(self._errback, "Error while applying actions from peer "
+                                        "'{0}'".format(peer.name))
 
     def _do_apply_actions(self, actions, peer):
         log.msg("Applying actions from peer '{0}'".format(peer.name))

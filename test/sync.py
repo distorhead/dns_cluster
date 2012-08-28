@@ -10,27 +10,7 @@ from lib.app.sync.sync import SyncApp
 from twisted.internet import reactor
 
 
-log.startLogging(sys.stdout)
-
-
-sa = SyncApp(cfg["server"]["name"],
-             cfg["server"]["interface"],
-             cfg["server"]["port"],
-             cfg["peers"], database, a_journal)
-pdb = sa._dbpool.peer.dbhandle()
-
-
-def sighandler(signum, _):
-    print 'sighandler({0}, {1}) {{'.format(signum, _)
-    sa.database_updated()
-    print '}} sighandler({0}, {1})'.format(signum, _)
-
-signal.signal(signal.SIGUSR2, sighandler)
-
-
-def s():
-    global sa
-    global reactor
-    sa.listen()
-    sa.start_pull()
-    reactor.run()
+_dbpool = lib.database.DatabasePool(SyncApp.DATABASES,
+                                    database.dbenv(),
+                                    database.dbfile())
+pdb = _dbpool.peer.dbhandle()

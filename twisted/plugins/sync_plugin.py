@@ -83,6 +83,7 @@ class SyncServiceMaker(object):
                            sp.get("action_journal"))
 
         signal.signal(signal.SIGUSR2, self._sighandler)
+        self._sa.start_pull()
         return self._sa.make_service()
 
 

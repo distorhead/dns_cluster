@@ -9,7 +9,7 @@ from twisted.python import log
 
 
 class SyncApp(object):
-    PUSH_BATCH_SIZE = 5
+    ACTIONS_BATCH_SIZE = 5
 
     DATABASES = {
         "peer": {
@@ -20,6 +20,7 @@ class SyncApp(object):
     }
 
     def __init__(self, interface, port, peers, db, action_journal, **kwargs):
+        #FIXME
         self._interface = interface
         self._port = port
         self._database = db
@@ -49,11 +50,13 @@ class SyncApp(object):
         self.server_endpoint = endpoints.serverFromString(reactor, endpoint_spec)
 
     def listen(self):
+        #FIXME
         d = self.server_endpoint.listen(SyncServerFactory(self.retrieve_actions))
         #TODO
         d.addCall
 
     def database_updated(self):
+        #FIXME
         log.msg("Updating active peers:", self._active_peers)
         while self._active_peers:
             peer = self._active_peers.pop(0)
@@ -68,6 +71,7 @@ class SyncApp(object):
         Method do not blocks.
         """
 
+        #FIXME
         for pname in self._peers:
             peer = self._peers[pname]
             d = peer.connect(self.apply_actions)
@@ -80,6 +84,7 @@ class SyncApp(object):
         Get actions of peer from specified position.
         Method do not blocks.
         """
+        #FIXME
 
         d = threads.deferToThread(self._do_retrieve_actions, position, peer)
         d.addCallback(self._actions_retrieved, position, peer)
@@ -93,6 +98,7 @@ class SyncApp(object):
         Method returns deferred activated when actions applied.
         """
 
+        #FIXME
         d = threads.deferToThread(self._do_apply_actions, actions, peer)
         d.addErrback(self._actions_apply_failure)
         d.addErrback(self._errback, "Error while handling actions from peer "
@@ -101,6 +107,7 @@ class SyncApp(object):
 
 
     def _do_apply_actions(self, actions, peer):
+        #FIXME
         log.msg("Applying actions from peer '{0}'".format(peer.name))
         pdb = self._dbpool.peer.dbhandle()
         for act_desc in actions:
@@ -113,6 +120,7 @@ class SyncApp(object):
                 pdb.put(peer.name, str(pos), txn)
 
     def _actions_apply_failure(self, failure):
+        #FIXME
         failure.trap(ActionError)
         #TODO: real failure handler
         log.msg("Unable to apply action", failure)
@@ -122,13 +130,15 @@ class SyncApp(object):
         Blocking call to DB, should be called from thread pool.
         """
 
+        #FIXME
         with self._database.transaction() as txn:
             cur_pos = self._action_journal.get_position(txn)
             actions = self._action_journal.get_since_position(peer.position,
-                      self.PUSH_BATCH_SIZE, txn)
+                      self.ACTIONS_BATCH_SIZE, txn)
             return (cur_pos, actions)
 
     def _got_peer_update(self, res, peer):
+        #FIXME
         cur_pos, actions = res
 
         if len(actions) == 0:
@@ -147,6 +157,7 @@ class SyncApp(object):
             peer.position = actions[-1]["position"]
 
     def _do_retrieve_actions(self, position, peer):
+        #FIXME
         log.msg("Retrieving actions for peer '{0}' from position {1}".format(
                 peer.host, position))
 
@@ -166,10 +177,11 @@ class SyncApp(object):
 
                 cur_pos = self._action_journal.get_position(txn)
                 actions = self._action_journal.get_since_position(
-                          position, self.PUSH_BATCH_SIZE, txn)
+                          position, self.ACTIONS_BATCH_SIZE, txn)
                 return (cur_pos, actions)
 
     def _actions_retrieved(self, res, position, peer):
+        #FIXME
         log.msg("Actions retrieved")
         if res is None:
             peer.service.send_no_position()
@@ -186,6 +198,7 @@ class SyncApp(object):
                 self._active_peers.append(peer)
 
     def _peer_connected(self, connection, peer):
+        #FIXME
         d = threads.deferToThread(self._get_peer_position, peer)
         d.addCallback(self._got_peer_position, peer)
         d.addErrback(self._errback,
@@ -196,16 +209,19 @@ class SyncApp(object):
         Blocking call to DB, should be called from thread pool.
         """
 
+        #FIXME
         pdb = self._dbpool.peer.dbhandle()
         return int(pdb.get(peer.name, None))
 
     def _got_peer_position(self, pos, peer):
+        #FIXME
         if not pos is None:
             peer.service.send_pull_request(pos)
         else:
             peer.service.send_pull_request(-1)
 
     def _errback(self, failure, desc):
+        #FIXME
         log.err(desc)
         log.err(failure)
 

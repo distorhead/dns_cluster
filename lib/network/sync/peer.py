@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 
-from lib.network.sync.protocol import SyncClientFactory
 from twisted.internet import reactor, endpoints, defer
+from twisted.python import log
+from lib.network.sync.protocol import SyncClientFactory
 
 
 class Peer(object):
@@ -13,8 +14,8 @@ class Peer(object):
 
     def __init__(self, name, host, port):
         """
-        Create new peer by name 'name'.
-        'host' and 'port' used for establishing client connection.
+        Create new peer with name 'name'. 'host' and 'port' 
+          used for establishing client connection.
         """
 
         self.name = name
@@ -28,17 +29,19 @@ class Peer(object):
         self.client = None
         self.server = None
 
-    def setup_client_connection(self, connection)
+    def setup_client_connection(self, connection):
         c = self.Connection(connection, connection.service)
         self.client = c
         self.client.connection.connectionLost = self._on_client_disconnect
         self.client.service.peer = self
+        return connection
 
     def setup_server_connection(self, connection):
         c = self.Connection(connection, connection.service)
         self.server = c
         self.server.connection.connectionLost = self._on_server_disconnect
         self.server.service.peer = self
+        return connection
 
     def _on_client_disconnect(self, _):
         self.client = None

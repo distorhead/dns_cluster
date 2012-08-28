@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from twisted.internet.defer import Deferred
+from twisted.python import log
 
 
 class EventError(Exception): pass
@@ -25,12 +26,9 @@ class EventStorage(object):
         """
 
         self._check_allowed_event(event)
-        if self._registered_events.has_key(event):
-            return self._registered_events[event]
-        else:
-            d = Deferred()
-            self._registered_events[event] = d
-            return d
+        d = self._registered_events.setdefault(event, Deferred())
+        d.addErrback(log.err)
+        return d
 
     def retrieve_event(self, event):
         """

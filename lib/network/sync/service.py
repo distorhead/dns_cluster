@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 
+from twisted.python import log
 from zope.interface import implements
 from lib.network.sync.sync import IService, IProtocol
 from lib.event_storage import EventStorage
-from lib.common import is_callable
 
 
 class Protocol:
@@ -11,15 +11,13 @@ class Protocol:
         OK = 0
         NO_POSITION = 1
         FORBIDDEN = 2
-        IDENTIFIED = 3
 
     class Cmd:
         IDENT = "ident"
         PULL_REQUEST = "pull_request" 
         ACTIONS = "actions"
         WAIT = "wait"
-        POSITION = "position"
-        #TODO: HEARTBEAT cmd
+        #TODO: PING cmd
 
 
 class SyncService(object):
@@ -31,6 +29,7 @@ class SyncService(object):
         self._state = None
         self._state_watchdog_timeout = kwargs.get("state_watchdog_timeout", 30.0)
         self._state_watchdog_timer = None
+        #TODO: remove this
         #self._reset_state_watchdog_timer()
 
     #def _reset_state_watchdog_timer(self):
@@ -55,9 +54,10 @@ class SyncService(object):
     def _allowed_state(self, *allowed_states):
         return self._state in allowed_states
 
-    def _errback(self, failure, desc):
-        log.err(desc)
-        log.err(failure)
+    #TODO: remove this
+    #def _errback(self, failure, desc):
+        #log.err(desc)
+        #log.err(failure)
 
     def set_protocol(self, protocol):
         self.protocol = IProtocol(protocol)
@@ -94,8 +94,28 @@ class SyncClient(SyncService):
     def __init__(self, **kwargs):
         SyncService.__init__(self, **kwargs)
         self._state = self.State.CONNECTED
-        self._es = EventStorage('actions_received')
+        self._es = EventStorage('actions', 'ident_response')
         self.peer = None
+
+    def _handle_cmd_ident(self, msg):
+        if self._allowed_state(self.State.IDENT_SENT):
+            if not msg.has_key("status"):
+                return
+
+            if msg["status"] == Protocol.Status.OK:
+                log.msg("Identification response - OK")
+                self._state = self.State.IDENTIFIED
+
+                d = self._es.retrieve_event('ident_response')
+                if not d is None:
+                    d.callback(True)
+
+            elif msg["status"] == Protocol.Status.FORBIDDEN:
+                log.msg("Identification response - FORBIDDEN")
+                self._state = self.State.CONNECTED
+                d = self._es.retrieve_event('ident_response')
+                if not d is None:
+                    d.callback(False)
 
     def _handle_cmd_actions(self, msg):
         if self._allowed_state(self.State.PULL_REQ_SENT, self.State.WAIT):
@@ -108,23 +128,16 @@ class SyncClient(SyncService):
                     if act_desc.has_key("action") and act_desc.has_key("position"):
                         valid_actions.append(act_desc)
 
-                d = self._es.retrieve_event('actions_received')
+                self._state = self.State.IDENTIFIED
+                d = self._es.retrieve_event('actions')
                 if not d is None:
                     d.callback(valid_actions)
 
-                self._state = self.State.IDENTIFIED
-
             elif msg["status"] == Protocol.Status.NO_POSITION:
-                log.msg("Unable to synchronize with peer '{0}': "
-                        "peer doesn't have requested position".format(self.peer.name))
-
-                d = self._es.retrieve_event('actions_received')
-                if not d is None:
-                    fail = SyncClientError("No such position on peer '{0}'".format(
-                                           self.peer.name))
-                    d.errback(fail)
-
                 self._state = self.State.IDENTIFIED
+                d = self._es.retrieve_event('actions')
+                if not d is None:
+                    d.callback(None)
 
     def _handle_cmd_wait(self, msg):
         if self._allowed_state(self.State.PULL_REQ_SENT,
@@ -133,7 +146,9 @@ class SyncClient(SyncService):
             self._state = self.State.WAIT
 
     def _handle_cmd(self, cmd, msg):
-        if cmd == Protocol.Cmd.ACTIONS:
+        if cmd == Protocol.Cmd.IDENT:
+            self._handle_cmd_ident(msg)
+        elif cmd == Protocol.Cmd.ACTIONS:
             self._handle_cmd_actions(msg)
         elif cmd == Protocol.Cmd.WAIT:
             self._handle_cmd_wait(msg)
@@ -141,9 +156,10 @@ class SyncClient(SyncService):
             log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
 
     def register_event(self, event):
-        self._es.register_event(event)
+        return self._es.register_event(event)
 
     def send_pull_request(self, position):
+        print self._state
         if self._allowed_state(self.State.IDENTIFIED):
             log.msg("Requesting pull from peer '{0}'".format(self.peer.name))
             msg = {
@@ -154,7 +170,7 @@ class SyncClient(SyncService):
             self._state = self.State.PULL_REQ_SENT
 
     def send_ident(self):
-        if self._allowed_state(self.State.CONNECTED, self.State.IDENT_SENT):
+        if self._allowed_state(self.State.CONNECTED):
             log.msg("Sending identification info from peer '{0}'".format(
                         self.peer.name))
             msg = {
@@ -164,15 +180,6 @@ class SyncClient(SyncService):
             self.send_message(msg)
             self._state = self.State.IDENT_SENT
 
-    def send_position(self, position):
-        if self._allowed_state(self.State.IDENTIFIED):
-            log.msg("Sending position info from peer '{0}'".format(self.peer.name))
-            msg = {
-                "cmd": Protocol.Cmd.POSITION,
-                "position": position
-            }
-            self.send_message(msg)
-
 
 class SyncServer(SyncService):
     class State:
@@ -181,7 +188,6 @@ class SyncServer(SyncService):
         IDENTIFIED = 2
         PULL_REQ_RECEIVED = 3
         WAIT_SENT = 4
-        ACTIONS_SENT = 5
 
     def __init__(self, **kwargs):
         SyncService.__init__(self, **kwargs)
@@ -197,46 +203,31 @@ class SyncServer(SyncService):
             if not msg.has_key("name"):
                 return
 
+            self._state = IDENT_RECEIVED
             d = self._es.retrieve_event('ident_request')
             if not d is None:
                 d.callback(msg["name"])
-
-            self._state = IDENT_RECEIVED
 
     def _handle_cmd_pull_request(self, msg):
         if self._allowed_state(self.State.IDENTIFIED):
             if not msg.has_key("position"):
                 return
 
+            self._state = self.State.PULL_REQ_RECEIVED
             d = self._es.retrieve_event('pull_request')
             if not d is None:
                 d.callback(msg["position"])
 
-            self._state = self.State.PULL_REQ_RECEIVED
-
-    def _handle_cmd_position(self, msg):
-        if self._allowed_state(self.State.ACTIONS_SENT):
-            if not msg.has_key("position"):
-                return
-
-            d = self._es.retrieve_event('position_update')
-            if not d is None:
-                d.callback(msg["position"])
-
-            self._state = self.State.IDENTIFIED
-
     def _handle_cmd(self, cmd, msg):
         if cmd == Protocol.Cmd.IDENT:
             self._handle_cmd_ident(msg)
-        if cmd == Protocol.Cmd.PULL_REQUEST:
+        elif cmd == Protocol.Cmd.PULL_REQUEST:
             self._handle_cmd_pull_request(msg)
-        elif cmd == Protocol.Cmd.POSITION:
-            self._handle_cmd_position(msg)
         else:
             log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
 
     def register_event(self, event):
-        self._es.register_event(event)
+        return self._es.register_event(event)
 
     def send_no_position(self):
         if self._allowed_state(self.State.PULL_REQ_RECEIVED):
@@ -274,7 +265,7 @@ class SyncServer(SyncService):
                     self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.IDENT,
-                "status": Protocol.Status.IDENTIFIED
+                "status": Protocol.Status.OK
             }
             self.send_message(msg)
             self._state = self.State.IDENTIFIED

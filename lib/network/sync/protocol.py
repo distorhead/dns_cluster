@@ -2,11 +2,13 @@
 
 import yaml
 
+from zope.interface import implements
 from twisted.internet.protocol import Factory
 from twisted.protocols.basic import LineReceiver
 from twisted.python import log
 from lib.action import Action, ActionError
 from lib.network.sync.sync import IProtocol, IService
+from lib.network.sync.service import SyncClient, SyncServer
 
 
 class YamlMsgProtocol(LineReceiver):
@@ -78,6 +80,9 @@ class SyncFactory(Factory):
 
 
 class SyncClientFactory(SyncFactory):
+    def __init__(self, **kwargs):
+        SyncFactory.__init__(self, **kwargs)
+
     def buildProtocol(self, addr):
         return self._build_protocol(SyncClient())
 

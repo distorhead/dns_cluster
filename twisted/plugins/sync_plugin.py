@@ -1,14 +1,13 @@
 import yaml
-import os
+import signal
 
 from zope.interface import implements
-from twisted.internet import task, reactor, endpoints
+from twisted.internet import reactor
 from twisted.python import usage
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
-from twisted.application import strports
 
-from lib.network import sync
+from lib.app.sync.sync import SyncApp
 from lib.service import ServiceProvider
 from lib.actions import *
 
@@ -20,23 +19,20 @@ CONFIG_DEFAULT = {
     },
 
     "server": {
+        "name": "sync",
         "interface": "localhost",
         "port": 1234
     },
 
-    "sync": {
-        "host": "localhost",
-        "port": 1234
-    }
+    "peers": {}
 }
 
 
 class Options(usage.Options):
     optParameters = [
+        ["name", "n", None, "Server identificator."],
         ["interface", "i", None, "The host name or IP to listen on."],
         ["port", "p", None, "The port number to listen on."],
-        ["sync_host", None, None, "Sync server host"],
-        ["sync_port", None, None, "Sync server port"],
         ["config", "c", "/etc/dns_cluster.yaml", "Path to the configuration file."]
     ]
 
@@ -56,31 +52,18 @@ class SyncServiceMaker(object):
         except:
             return {}
 
-    def _setup_pull_client(self, options, cfg, sp):
-        if not options["sync_host"] is None:
-            host = options["sync_host"]
-        else:
-            host = cfg["sync"]["host"]
-
-        if not options["sync_port"] is None:
-            port = options["sync_port"]
-        else:
-            port = cfg["sync"]["port"]
-
-        def connect():
-            endpoint_spec = "tcp:host={host}:port={port}".format(host=host, port=port)
-            ep = endpoints.clientFromString(reactor, endpoint_spec)
-            d = ep.connect(sync.SyncFactory(sp.get("action_journal"),
-                                            sp.get("database")))
-            d.addCallback(sync.SyncProtocol.pull)
-
-        l = task.LoopingCall(connect)
-        l.start(60.0)
+    def _sighandler(self, signum, _):
+        self._sa.database_updated()
 
     def makeService(self, options):
         cfg = CONFIG_DEFAULT
         new_cfg = self._read_cfg(options["config"])
         cfg.update(new_cfg)
+
+        if not options["name"] is None:
+            name = options["name"]
+        else:
+            name = cfg["server"]["name"]
 
         if not options["interface"] is None:
             interface = options["interface"]
@@ -92,15 +75,15 @@ class SyncServiceMaker(object):
         else:
             port = cfg["server"]["port"]
 
+        peers = cfg["peers"]
+
         sp = ServiceProvider(init_srv=True, cfg=cfg)
-        endpoint_spec = "tcp:{port}:interface={interface}".format(
-                        port=port, interface=interface)
-        service = strports.service(endpoint_spec, sync.SyncFactory(sp.get("action_journal"),
-                                                                   sp.get("database")))
+        self._sa = SyncApp(name, interface, port, peers,
+                           sp.get("database"),
+                           sp.get("action_journal"))
 
-        self._setup_pull_client(options, cfg, sp)
-
-        return service
+        signal.signal(signal.SIGUSR2, self._sighandler)
+        return self._sa.make_service()
 
 
 sync_service_maker = SyncServiceMaker()

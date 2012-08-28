@@ -57,8 +57,8 @@ class SyncApp(object):
         l = task.LoopingCall(self.pull)
         l.start(self._pull_period)
 
-    def listen(self):
-        d = Peer.listen(self._interface, self._port, self._client_connected)
+    def make_service(self):
+        return Peer.make_service(self._interface, self._port, self._client_connected)
 
     def _client_connected(self, conn):
         log.msg("New client connected")

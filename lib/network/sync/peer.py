@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from twisted.internet import reactor, endpoints, defer
+from twisted.application import strports
 from twisted.python import log
 from lib.network.sync.protocol import SyncClientFactory, SyncServerFactory
 
@@ -12,13 +13,13 @@ class Peer(object):
             self.service = service
 
     @staticmethod
-    def listen(interface, port, connectionMade):
+    def make_service(interface, port, connectionMade):
         endpoint_spec = "tcp:interface={interface}:port={port}".format(
                         interface=interface, port=port)
-        ep = endpoints.serverFromString(reactor, endpoint_spec)
         f = SyncServerFactory()
-        ep.listen(f)
         f.connectionMade = connectionMade
+        twisted_service = strports.service(endpoint_spec, f)
+        return twisted_service
 
     def __init__(self, name, **kwargs):
         """

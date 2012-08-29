@@ -1,3 +1,3 @@
 #!/bin/bash
 
-exec sudo twistd --pidfile="/run/gamma.pid" -n $@ syncd -c tests/configs/syncd/gamma.yaml
+exec sudo twistd --pidfile="/run/gamma.pid" $@ syncd -c tests/configs/syncd/gamma.yaml

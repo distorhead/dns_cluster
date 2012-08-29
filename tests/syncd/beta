@@ -1,3 +1,3 @@
 #!/bin/bash
 
-exec sudo twistd --pidfile="/run/beta.pid" -n $@ syncd -c tests/configs/syncd/beta.yaml
+exec sudo twistd --pidfile="/run/beta.pid" $@ syncd -c tests/configs/syncd/beta.yaml

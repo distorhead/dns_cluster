@@ -2,9 +2,9 @@
 *.o
 *.swp
 *.swo
-tests/db/alpha/*
-!tests/db/alpha/.holder
-tests/db/beta/*
-!tests/db/beta/.holder
-tests/db/gamma/*
-!tests/db/gamma/.holder
+tests/databases/alpha/*
+!tests/databases/alpha/.holder
+tests/databases/beta/*
+!tests/databases/beta/.holder
+tests/databases/gamma/*
+!tests/databases/gamma/.holder

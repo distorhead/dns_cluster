@@ -2,5 +2,9 @@
 *.o
 *.swp
 *.swo
-spec
-test.yaml
+test/db/alpha/*
+!test/db/alpha/.holder
+test/db/beta/*
+!test/db/beta/.holder
+test/db/gamma/*
+!test/db/gamma/.holder

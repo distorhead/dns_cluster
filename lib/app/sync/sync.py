@@ -141,12 +141,14 @@ class SyncApp(object):
             if not pdesc["pull_in_progress"]:
                 d = peer.connect()
                 d.addCallback(self._peer_connected, peer)
-                
-                def errback(failure):
+
+                def errback(failure, pdesc):
+                    log.msg("Unsetting pull in progress state for peer '{0}'".format(
+                                pdesc["peer"].name))
                     pdesc["pull_in_progress"] = False
                     raise failure
 
-                d.addErrback(errback)
+                d.addErrback(errback, pdesc)
                 d.addErrback(self._errback,
                              "Error while connecting to peer '{0}'".format(peer.name))
                 pdesc["pull_in_progress"] = True

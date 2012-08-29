@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec sudo twistd $@ --pidfile="/run/alpha.pid" --logfile=alpha.log syncd -c tests/configs/syncd/alpha.yaml

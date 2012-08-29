@@ -8,3 +8,4 @@ tests/databases/beta/*
 !tests/databases/beta/.holder
 tests/databases/gamma/*
 !tests/databases/gamma/.holder
+*.log

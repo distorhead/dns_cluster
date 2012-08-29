@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec tools/console -c tests.configs.console.beta $@

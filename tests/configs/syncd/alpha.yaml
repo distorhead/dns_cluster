@@ -4,7 +4,7 @@ server:
     port: 1100
 
 database:
-    dbenv_homedir: ./test/db/alpha
+    dbenv_homedir: ./tests/databases/alpha
     dbfile: dlz.db
 
 peers:

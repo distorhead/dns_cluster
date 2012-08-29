@@ -6,6 +6,18 @@ import os
 import shutil
 
 
+# Initiate adding services
+import lib.database
+import lib.action
+
+from lib.bdb_helpers import *
+from lib.service import ServiceProvider
+from lib.actions import *
+from lib.action import Action
+from lib.dbstate import Dbstate
+from lib.app.sync.sync import SyncApp
+
+
 # Read command line options and setup config
 
 cfg = {
@@ -40,20 +52,9 @@ if options.has_key("-c"):
 if options.has_key("-p"):
     shutil.rmtree(cfg["database"]["dbenv_homedir"])
     os.mkdir(cfg["database"]["dbenv_homedir"])
+    open(cfg["database"]["dbenv_homedir"] + "/.holder", 'w')
 
 ##################################
-
-
-# Initiate adding services
-import lib.database
-import lib.action
-
-from lib.bdb_helpers import *
-from lib.service import ServiceProvider
-from lib.actions import *
-from lib.action import Action
-from lib.dbstate import Dbstate
-from lib.app.sync.sync import SyncApp
 
 
 sp = ServiceProvider(init_srv=True, cfg=cfg)
@@ -86,7 +87,7 @@ dbstate = Dbstate()
 def apply(act):
     with database.transaction() as txn:
         act.apply(database, txn)
-        a_journal.record_action(act, txn)
+        action_journal.record_action(act, txn)
 
 def get_hash(**kwargs):
     glbl = kwargs.get('global', None)

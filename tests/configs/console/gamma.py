@@ -6,7 +6,7 @@ cfg = {
     },
 
     "database": {
-        "dbenv_homedir": "./test/db/gamma",
+        "dbenv_homedir": "./tests/databases/gamma",
         "dbfile": "dlz.db"
     },
 

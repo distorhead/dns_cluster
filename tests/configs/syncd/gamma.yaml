@@ -4,7 +4,7 @@ server:
     port: 1102
 
 database:
-    dbenv_homedir: ./test/db/gamma
+    dbenv_homedir: ./tests/databases/gamma
     dbfile: dlz.db
 
 peers:

@@ -5,6 +5,7 @@ import os, sys, shutil
 import random
 import getopt
 import signal
+import time
 
 import lib.database
 import lib.action
@@ -48,8 +49,8 @@ class Test1(unittest.TestCase):
             self.action_journal = self.sp.get("action_journal")
             self.name = name
 
-    def __init__(self, target_server, debug=False, *args, **kwargs):
-        unittest.TestCase.__init__(self, *args, **kwargs)
+    def __init__(self, target_server, *args, **kwargs):
+        unittest.TestCase.__init__(self, *args, **{})
         if target_server is None:
             servers = list(self.servers)
             if len(servers) == 0:
@@ -61,7 +62,9 @@ class Test1(unittest.TestCase):
         else:
             raise TestError("No such server defined '{0}'".format(target_server))
 
-        self.debug = debug
+        self._run = kwargs.get("run", False)
+        self._purge = kwargs.get("purge", False)
+        self._debug = kwargs.get("debug", False)
         self.environments = {}
         random.seed()
 
@@ -110,8 +113,13 @@ class Test1(unittest.TestCase):
         }
 
     def log(self, *args):
-        if self.debug:
+        if self._debug:
             sys.stdout.write(args[0].format(*args[1:]) + '\n')
+
+    def stdout(self, arg):
+        if self._debug:
+            sys.stdout.write(str(arg))
+            sys.stdout.flush()
 
     def _get_pid(self, srv):
         path = "/run/" + srv + ".pid"
@@ -144,11 +152,16 @@ class Test1(unittest.TestCase):
 
     def setUp(self):
         for sname, srv in self.servers.iteritems():
-            self._kill_server(sname)
+            if self._run:
+                self._kill_server(sname)
+
             cfg = self._load_pyconfig(srv["pyconfig"])
-            self._purge_db(cfg["database"]["dbenv_homedir"])
+            if self._purge:
+                self._purge_db(cfg["database"]["dbenv_homedir"])
             self.environments[sname] = self.Environment(cfg, sname)
-            os.system(srv["exec"])
+
+            if self._run:
+                os.system(srv["exec"])
 
     def tearDown(self):
         for srv in self.servers:
@@ -396,8 +409,8 @@ class Test1(unittest.TestCase):
         for rec in bdb_helpers.get_all(ddb, key, txn):
             data = split(rec)
             if (data[3] == 'SOA' and
-                data[4] == str(act.primary_ns) and
-                data[5] == str(act.resp_person) and
+                data[4] == act.primary_ns and
+                data[5] == act.resp_person and
                 data[6] == str(act.serial) and
                 data[7] == str(act.refresh) and
                 data[8] == str(act.retry) and
@@ -412,7 +425,6 @@ class Test1(unittest.TestCase):
         rec = ddb.get(key, None, txn)
         if not rec is None:
             data = split(rec)
-            self.log("CHEKING: {}", data)
             return (data[3] == 'SRV' and
                     data[6] == str(act.port) and
                     data[7] == act.domain)
@@ -511,6 +523,21 @@ class Test1(unittest.TestCase):
                 self._apply_action(a, env, txn)
         return records
 
+    def _check_data(self, arenas, segments, zones, records, env, txn):
+        na = len(arenas + segments + zones + records)
+        self.log("Checking environment '{}'", env.name)
+        for arena in arenas:
+            self.assertTrue(self._check_arena_exists(arena, env, txn))
+
+        for segment in segments:
+            self.assertTrue(self._check_segment_exists(segment, env, txn))
+
+        for zone in zones:
+            self.assertTrue(self._check_zone_exists(zone, env, txn))
+
+        for record in records:
+            self.assertTrue(self._check_record_exists(record, env, txn))
+
 
     def runTest(self):
         env = self.environments[self.target]
@@ -528,27 +555,36 @@ class Test1(unittest.TestCase):
 
         # Check created data on target server
         with env.database.transaction() as txn:
-            for arena in arenas:
-                self.assertTrue(self._check_arena_exists(arena, env, txn))
+            self._check_data(arenas, segments, zones + ptr_zones,
+                             records + ptr_records, env, txn)
 
-            for segment in segments:
-                self.assertTrue(self._check_segment_exists(segment, env, txn))
+        actions_number = len(arenas + segments + zones + ptr_zones +
+                             records + ptr_records)
 
-            for zone in zones:
-                self.assertTrue(self._check_zone_exists(zone, env, txn))
+        self.log("Generated {} actions", actions_number)
+        self.log("Sending database updated signal to target server '{}'", self.target)
+        self._database_updated(self.target)
 
-            for pzone in ptr_zones:
-                self.assertTrue(self._check_zone_exists(pzone, env, txn))
+        self.log("Waiting before update on peers occurs")
+        t = 60
+        max_len = len(str(t))
+        while t:
+            self.stdout('\r' + ' ' * max_len + '\r')
+            self.stdout(str(t))
+            time.sleep(1)
+            t -= 1
+        self.stdout('\n')
 
-            for record in records + ptr_records:
-                self.assertTrue(self._check_record_exists(record, env, txn))
-
-        #self._database_updated(self.target)
+        for sname, env in self.environments.iteritems():
+            if sname != self.target:
+                with env.database.transaction() as txn:
+                    self._check_data(arenas, segments, zones + ptr_zones,
+                                     records + ptr_records, env, txn)
 
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    optlist, _ = getopt.getopt(args, "dt:")
+    optlist, _ = getopt.getopt(args, "dprt:")
     options = dict(optlist)
 
     if options.has_key("-d"):
@@ -556,13 +592,20 @@ if __name__ == '__main__':
     else:
         debug = False
 
-    if options.has_key("-t"):
-        target_server = options["-t"]
+    if options.has_key("-p"):
+        purge = True
     else:
-        target_server = None
+        purge = False
+
+    if options.has_key("-r"):
+        run = True
+    else:
+        run = False
+
+    target_server = options.get("-t", None)
 
     suite = unittest.TestSuite()
-    suite.addTest(Test1(target_server, debug))
+    suite.addTest(Test1(target_server, run=run, purge=purge, debug=debug))
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 

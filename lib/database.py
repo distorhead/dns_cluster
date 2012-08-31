@@ -251,7 +251,6 @@ class manager(object):
         atexit.register(self._terminate)
 
     def _terminate(self):
-        print 'terminating context'
         log.msg("Terminating database context")
         self._dbenv.close()
 

@@ -21,17 +21,18 @@ class ServiceProvider(object):
             class ServiceHolder: pass
 
             srv = ServiceHolder()
+            srv.name = srv_name
             srv.cls = srv_cls
-            srv.instance = None
             srv.deps = deps
 
-            cls._registered_services[srv_name] = srv
+            cls._registered_services[srv.name] = srv
             return srv_cls
 
         return do_register
 
 
     def __init__(self, **kwargs):
+        self._instances = {}
         init_srv = kwargs.get("init_srv", False)
         cfg = kwargs.get("cfg", {})
         if init_srv:
@@ -43,12 +44,17 @@ class ServiceProvider(object):
                                srv_name))
         return self._registered_services[srv_name]
 
+    def _lookup_instance(self, srv_name):
+        srv = self._lookup_srv(srv_name)
+        if not self._instances.has_key(srv):
+            raise ServiceError("Service '{0}' doesn't initialized".format(srv_name))
+        return self._instances[srv]
+
     def _get_srv_conf(self, srv_name, cfg):
         return cfg.get(srv_name, {})
 
     def _initialize_srv(self, srv, srv_cfg, cfg, count=1):
         if count > 999:
-            #FIXME
             raise ServiceError("There is a circular dependency between services")
 
         for dep in srv.deps:
@@ -56,20 +62,16 @@ class ServiceProvider(object):
             dsrv_cfg = self._get_srv_conf(dep, cfg)
             self._initialize_srv(dsrv, dsrv_cfg, cfg, count+1)
 
-        if srv.instance is None:
-            srv.instance = srv.cls(self, **srv_cfg)
+        if not self._instances.has_key(srv):
+            self._instances[srv] = srv.cls(self, **srv_cfg)
 
     def initialize(self, cfg={}):
-        for (srv_name, srv) in self._registered_services.items():
-            srv_cfg = self._get_srv_conf(srv_name, cfg)
+        for (_, srv) in self._registered_services.items():
+            srv_cfg = self._get_srv_conf(srv.name, cfg)
             self._initialize_srv(srv, srv_cfg, cfg)
 
     def get(self, srv_name):
-        srv = self._lookup_srv(srv_name)
-        if srv.instance is None:
-            raise ServiceError("Service '{0}' doesn't initialized".format(srv_name))
-
-        return srv.instance
+        return self._lookup_instance(srv_name)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

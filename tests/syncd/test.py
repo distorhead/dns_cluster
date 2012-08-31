@@ -81,43 +81,74 @@ class Test1(unittest.TestCase):
             self._alphabet.append(chr(i))
         self._alphabet += ['_']
 
-        self._record_map = {
-            AddRecord_A: {
+        self._record_map = {}
+        self._record_map[AddRecord_A] = {
                 "generate": self._generate_a_rec,
                 "check_exists": self._check_a_rec_exists
-            },
-            AddRecord_CNAME: {
-                "generate": self._generate_cname_rec,
-                "check_exists": self._check_cname_rec_exists
-            },
-            AddRecord_DNAME: {
-                "generate": self._generate_dname_rec,
-                "check_exists": self._check_dname_rec_exists
-            },
-            AddRecord_MX: {
-                "generate": self._generate_mx_rec,
-                "check_exists": self._check_mx_rec_exists
-            },
-            AddRecord_NS: {
-                "generate": self._generate_ns_rec,
-                "check_exists": self._check_ns_rec_exists
-            },
-            AddRecord_PTR: {
-                "generate": self._generate_ptr_rec,
-                "check_exists": self._check_ptr_rec_exists
-            },
-            AddRecord_SOA: {
-                "generate": self._generate_soa_rec,
-                "check_exists": self._check_soa_rec_exists
-            },
-            AddRecord_SRV: {
-                "generate": self._generate_srv_rec,
-                "check_exists": self._check_srv_rec_exists
-            },
-            AddRecord_TXT: {
-                "generate": self._generate_txt_rec,
-                "check_exists": self._check_txt_rec_exists
-            }
+        }
+        self._record_map[DelRecord_A] = self._record_map[AddRecord_A]
+
+        self._record_map[AddRecord_CNAME] = {
+            "generate": self._generate_cname_rec,
+            "check_exists": self._check_cname_rec_exists
+        }
+        self._record_map[DelRecord_CNAME] = self._record_map[AddRecord_CNAME]
+
+        self._record_map[AddRecord_DNAME] = {
+            "generate": self._generate_dname_rec,
+            "check_exists": self._check_dname_rec_exists
+        }
+        self._record_map[DelRecord_DNAME] = self._record_map[AddRecord_DNAME]
+
+        self._record_map[AddRecord_MX] = {
+            "generate": self._generate_mx_rec,
+            "check_exists": self._check_mx_rec_exists
+        }
+        self._record_map[DelRecord_MX] = self._record_map[AddRecord_MX]
+
+        self._record_map[AddRecord_NS] = {
+            "generate": self._generate_ns_rec,
+            "check_exists": self._check_ns_rec_exists
+        }
+        self._record_map[DelRecord_NS] = self._record_map[AddRecord_NS]
+
+        self._record_map[AddRecord_PTR] = {
+            "generate": self._generate_ptr_rec,
+            "check_exists": self._check_ptr_rec_exists
+        }
+        self._record_map[DelRecord_PTR] = self._record_map[AddRecord_PTR]
+
+        self._record_map[AddRecord_SOA] = {
+            "generate": self._generate_soa_rec,
+            "check_exists": self._check_soa_rec_exists
+        }
+        self._record_map[DelRecord_SOA] = self._record_map[AddRecord_SOA]
+
+        self._record_map[AddRecord_SRV] = {
+            "generate": self._generate_srv_rec,
+            "check_exists": self._check_srv_rec_exists
+        }
+        self._record_map[DelRecord_SRV] = self._record_map[AddRecord_SRV]
+
+        self._record_map[AddRecord_TXT] = {
+            "generate": self._generate_txt_rec,
+            "check_exists": self._check_txt_rec_exists
+        }
+        self._record_map[DelRecord_TXT] = self._record_map[AddRecord_TXT]
+
+        self._actions_map = {
+            AddArena: DelArena,
+            AddSegment: DelSegment,
+            AddZone: DelZone,
+            AddRecord_A: DelRecord_A,
+            AddRecord_CNAME: DelRecord_CNAME,
+            AddRecord_DNAME: DelRecord_DNAME,
+            AddRecord_MX: DelRecord_MX,
+            AddRecord_NS: DelRecord_NS,
+            AddRecord_PTR: DelRecord_PTR,
+            AddRecord_SOA: DelRecord_SOA,
+            AddRecord_SRV: DelRecord_SRV,
+            AddRecord_TXT: DelRecord_TXT
         }
 
     def log(self, *args):
@@ -158,6 +189,15 @@ class Test1(unittest.TestCase):
         cfg_mod = load_module(path)
         return cfg_mod.cfg
 
+    def _wait(self, t):
+        max_len = len(str(t))
+        while t:
+            self.stdout('\r' + ' ' * max_len + '\r')
+            self.stdout(str(t))
+            time.sleep(1)
+            t -= 1
+        self.stdout('\n')
+
     def setUp(self):
         for sname, srv in self.servers.iteritems():
             if self._run:
@@ -174,6 +214,13 @@ class Test1(unittest.TestCase):
     def tearDown(self):
         for srv in self.servers:
             self._kill_server(srv)
+
+
+    def _invert_action(self, act):
+        init = act.__dict__
+        if init.has_key("dbstate"):
+            del init["dbstate"]
+        return self._actions_map[act.__class__](**act.__dict__)
 
     def _generate_str(self, min_len=1, max_len=50):
         res = ""
@@ -531,20 +578,20 @@ class Test1(unittest.TestCase):
                 self._apply_action(a, env, txn)
         return records
 
-    def _check_data(self, arenas, segments, zones, records, env, txn):
+    def _check_data_exists(self, checker, arenas, segments, zones, records, env, txn):
         na = len(arenas + segments + zones + records)
         self.log("Checking environment '{}':", env.name)
         for arena in arenas:
-            self.assertTrue(self._check_arena_exists(arena, env, txn))
+            checker(self._check_arena_exists(arena, env, txn))
 
         for segment in segments:
-            self.assertTrue(self._check_segment_exists(segment, env, txn))
+            checker(self._check_segment_exists(segment, env, txn))
 
         for zone in zones:
-            self.assertTrue(self._check_zone_exists(zone, env, txn))
+            checker(self._check_zone_exists(zone, env, txn))
 
         for record in records:
-            self.assertTrue(self._check_record_exists(record, env, txn))
+            checker(self._check_record_exists(record, env, txn))
 
     def _check_position(self, actions_number, env, txn):
         pdb = env.sa_dbpool.peer.dbhandle()
@@ -554,9 +601,8 @@ class Test1(unittest.TestCase):
 
 
     def runTest(self):
+        add_actions = []
         env = self.environments[self.target]
-        actions = []
-
         # Create data set on target server
         with env.database.transaction() as txn:
             arenas = self._create_arenas(2, 4, env, txn)
@@ -564,35 +610,74 @@ class Test1(unittest.TestCase):
             zones, ptr_zones = self._create_zones(segments, 2, 5, 0, 2, env, txn)
             records = self._create_records(zones, 10, 20, env, txn)
             ptr_records = self._create_ptr_records(ptr_zones, 1, 10, env, txn)
-            actions += arenas + segments + zones + ptr_zones + records + ptr_records
+            add_actions += (arenas + segments + zones + 
+                            ptr_zones + records + ptr_records)
 
         # Check created data on target server
         with env.database.transaction() as txn:
-            self._check_data(arenas, segments, zones + ptr_zones,
-                             records + ptr_records, env, txn)
+            self._check_data_exists(self.assertTrue, arenas, segments,
+                                    zones + ptr_zones, records + ptr_records,
+                                    env, txn)
 
-        actions_number = len(arenas + segments + zones + ptr_zones +
-                             records + ptr_records)
+        actions_number = len(add_actions)
 
-        self.log("Generated {} actions", actions_number)
+        self.log("Total actions: {}", actions_number)
         self.log("Sending database updated signal to target server '{}'", self.target)
         self._database_updated(self.target)
 
         self.log("Waiting before update on peers occurs")
-        t = 60
-        max_len = len(str(t))
-        while t:
-            self.stdout('\r' + ' ' * max_len + '\r')
-            self.stdout(str(t))
-            time.sleep(1)
-            t -= 1
-        self.stdout('\n')
+        self._wait(60)
+
+        # Check data added on remote servers
+        for sname, env in self.environments.iteritems():
+            if sname != self.target:
+                with env.database.transaction() as txn:
+                    self._check_data_exists(self.assertTrue, arenas,
+                                            segments, zones + ptr_zones,
+                                            records + ptr_records, env, txn)
+                    self._check_position(actions_number, env, txn)
+
+        del_actions = []
+        del_arenas = []
+        del_segments = []
+        del_zones = []
+        del_records = []
+        for a in arenas:
+            del_arenas.append(self._invert_action(a))
+        for a in segments:
+            del_segments.append(self._invert_action(a))
+        for a in zones + ptr_zones:
+            del_zones.append(self._invert_action(a))
+        for a in records + ptr_records:
+            del_records.append(self._invert_action(a))
+        del_actions += del_arenas + del_segments + del_zones + del_records
+
+        env = self.environments[self.target]
+        with env.database.transaction() as txn:
+            for a in reversed(del_actions):
+                self.log("[{}] Applying delete action {}", env.name, a)
+                self._apply_action(a, env, txn)
+
+        # Check deleted data on target server
+        with env.database.transaction() as txn:
+            self._check_data_exists(self.assertFalse, del_arenas, del_segments,
+                                    del_zones, del_records, env, txn)
+
+        actions_number += len(del_actions)
+
+        self.log("Total actions: {}", actions_number)
+        self.log("Sending database updated signal to target server '{}'", self.target)
+        self._database_updated(self.target)
+
+        self.log("Waiting before update on peers occurs")
+        self._wait(60)
 
         for sname, env in self.environments.iteritems():
             if sname != self.target:
                 with env.database.transaction() as txn:
-                    self._check_data(arenas, segments, zones + ptr_zones,
-                                     records + ptr_records, env, txn)
+                    self._check_data_exists(self.assertFalse, del_arenas,
+                                            del_segments, del_zones,
+                                            del_records, env, txn)
                     self._check_position(actions_number, env, txn)
 
 

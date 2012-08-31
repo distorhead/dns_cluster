@@ -48,9 +48,11 @@ class Peer(object):
         return connection
 
     def _on_client_disconnect(self, _):
+        log.msg("Client connection with peer '{}' lost".format(self.name))
         self.client = None
 
     def _on_server_disconnect(self, _):
+        log.msg("Server connection with peer '{}' lost".format(self.name))
         self.server = None
 
     def connect(self):

@@ -138,6 +138,13 @@ class SyncApp(object):
 
         for _, pdesc in self._peers.iteritems():
             peer = pdesc["peer"]
+
+            #TODO:
+            # Possibly it's better to add event 'connection_lost'
+            #   to peer class
+            if peer.client is None:
+                pdesc["pull_in_progress"] = False
+
             if not pdesc["pull_in_progress"]:
                 d = peer.connect()
                 d.addCallback(self._peer_connected, peer)

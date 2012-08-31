@@ -605,7 +605,7 @@ class Test1(unittest.TestCase):
         env = self.environments[self.target]
         # Create data set on target server
         with env.database.transaction() as txn:
-            arenas = self._create_arenas(2, 4, env, txn)
+            arenas = self._create_arenas(10, 20, env, txn)
             segments = self._create_segments(arenas, 1, 5, env, txn)
             zones, ptr_zones = self._create_zones(segments, 2, 5, 0, 2, env, txn)
             records = self._create_records(zones, 10, 20, env, txn)
@@ -626,7 +626,7 @@ class Test1(unittest.TestCase):
         self._database_updated(self.target)
 
         self.log("Waiting before update on peers occurs")
-        self._wait(60)
+        self._wait(160)
 
         # Check data added on remote servers
         for sname, env in self.environments.iteritems():
@@ -670,7 +670,7 @@ class Test1(unittest.TestCase):
         self._database_updated(self.target)
 
         self.log("Waiting before update on peers occurs")
-        self._wait(60)
+        self._wait(160)
 
         for sname, env in self.environments.iteritems():
             if sname != self.target:

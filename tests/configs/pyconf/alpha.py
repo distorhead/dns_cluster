@@ -1,3 +1,6 @@
+import os
+script_path = os.path.dirname(os.path.realpath(__file__))
+
 cfg = {
     "server": {
         "name": "alpha",
@@ -6,7 +9,7 @@ cfg = {
     },
 
     "database": {
-        "dbenv_homedir": "./tests/databases/alpha",
+        "dbenv_homedir": script_path + "/../../../tests/databases/alpha",
         "dbfile": "dlz.db"
     },
 

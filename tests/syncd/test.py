@@ -13,6 +13,8 @@ import lib.action
 from lib.common import load_module, split, reorder
 from lib import bdb_helpers
 from lib.service import ServiceProvider
+from lib.app.sync.sync import SyncApp
+
 
 act_mods = __import__("lib.actions", globals(), locals(), ['*'])
 for act_mod_name in act_mods.__dict__['__all__']:
@@ -21,33 +23,39 @@ for act_mod_name in act_mods.__dict__['__all__']:
     globals()[act_name] = getattr(act_mod, act_name)
 
 
+SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+
+
 class TestError(Exception): pass
 
 
 class Test1(unittest.TestCase):
     servers = {
         "alpha": {
-            "exec": "tests/syncd/alpha --logfile=alpha.log",
+            "exec": "{}/alpha --logfile=alpha.log".format(SCRIPT_PATH),
             "pyconfig": "tests.configs.pyconf.alpha"
         },
 
         "beta": {
-            "exec": "tests/syncd/beta --logfile=beta.log",
+            "exec": "{}/beta --logfile=beta.log".format(SCRIPT_PATH),
             "pyconfig": "tests.configs.pyconf.beta"
         },
 
         "gamma": {
-            "exec": "tests/syncd/gamma --logfile=gamma.log",
+            "exec": "{}/gamma --logfile=gamma.log".format(SCRIPT_PATH),
             "pyconfig": "tests.configs.pyconf.gamma"
         }
     }
 
     class Environment(object):
         def __init__(self, cfg, name):
+            self.name = name
             self.sp = ServiceProvider(init_srv=True, cfg=cfg)
             self.database = self.sp.get("database")
             self.action_journal = self.sp.get("action_journal")
-            self.name = name
+            self.sa_dbpool = lib.database.DatabasePool(SyncApp.DATABASES,
+                                                       self.database.dbenv(),
+                                                       self.database.dbfile())
 
     def __init__(self, target_server, *args, **kwargs):
         unittest.TestCase.__init__(self, *args, **{})
@@ -525,7 +533,7 @@ class Test1(unittest.TestCase):
 
     def _check_data(self, arenas, segments, zones, records, env, txn):
         na = len(arenas + segments + zones + records)
-        self.log("Checking environment '{}'", env.name)
+        self.log("Checking environment '{}':", env.name)
         for arena in arenas:
             self.assertTrue(self._check_arena_exists(arena, env, txn))
 
@@ -537,6 +545,12 @@ class Test1(unittest.TestCase):
 
         for record in records:
             self.assertTrue(self._check_record_exists(record, env, txn))
+
+    def _check_position(self, actions_number, env, txn):
+        pdb = env.sa_dbpool.peer.dbhandle()
+        pos = pdb.get(self.target, None, txn)
+        self.log("[{}] Checking position of '{}': {}", env.name, self.target, pos)
+        self.assertTrue(pos == str(actions_number))
 
 
     def runTest(self):
@@ -551,7 +565,6 @@ class Test1(unittest.TestCase):
             records = self._create_records(zones, 10, 20, env, txn)
             ptr_records = self._create_ptr_records(ptr_zones, 1, 10, env, txn)
             actions += arenas + segments + zones + ptr_zones + records + ptr_records
-
 
         # Check created data on target server
         with env.database.transaction() as txn:
@@ -580,6 +593,7 @@ class Test1(unittest.TestCase):
                 with env.database.transaction() as txn:
                     self._check_data(arenas, segments, zones + ptr_zones,
                                      records + ptr_records, env, txn)
+                    self._check_position(actions_number, env, txn)
 
 
 if __name__ == '__main__':

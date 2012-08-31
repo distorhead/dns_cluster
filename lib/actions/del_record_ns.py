@@ -4,6 +4,9 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["DelRecord_NS"]
+
+
 @Action.register_action
 class DelRecord_NS(RecordAction):
     ERROR_MSG_TEMPLATE = "unable to delete NS record {rec}: {reason}"
@@ -21,13 +24,9 @@ class DelRecord_NS(RecordAction):
         else:
             return False
 
-    def _make_error_msg(self, reason):
-        rec = "{{zone='{0}', domain='{1}'}}".format(
+    def desc(self):
+        return "{{type='NS', zone='{}', domain='{}'}}".format(
                 self.zone, self.domain)
-        return self.ERROR_MSG_TEMPLATE.format(
-                    rec=rec,
-                    reason=reason
-                )
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

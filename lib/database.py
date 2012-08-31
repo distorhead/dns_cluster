@@ -131,6 +131,7 @@ class DatabasePool(object):
                               databases_spec[dbname]["flags"],
                               databases_spec[dbname]["open_flags"])
             setattr(self, dbname, dbdesc)
+            getattr(self, dbname, dbdesc).dbhandle()
 
             seq_spec = databases_spec[dbname].get("seq_spec", {})
             for seq_name in seq_spec:
@@ -227,6 +228,10 @@ class manager(object):
                          bdb.DB_INIT_MPOOL | bdb.DB_INIT_LOCK |
                          bdb.DB_INIT_LOG | bdb.DB_INIT_TXN )
 
+    ENV_MAX_LOCKERS = 100000
+    ENV_MAX_LOCKS = 100000
+    ENV_MAX_OBJECTS = 100000
+
     def __init__(self, *args, **kwargs):
         self._dbenv_flags = kwargs.get("dbenv_flags", self.ENV_FLAGS_DEFAULT)
         self._dbenv_homedir = kwargs.get("dbenv_homedir", None)
@@ -236,6 +241,9 @@ class manager(object):
         assert not self._dbfile is None
 
         self._dbenv = bdb.DBEnv()
+        self._dbenv.set_lk_max_lockers(self.ENV_MAX_LOCKERS)
+        self._dbenv.set_lk_max_locks(self.ENV_MAX_LOCKS)
+        self._dbenv.set_lk_max_objects(self.ENV_MAX_OBJECTS)
         self._dbenv.open(self._dbenv_homedir, self._dbenv_flags)
 
         self._dbpool = DatabasePool(self.DATABASES, self._dbenv, self._dbfile)

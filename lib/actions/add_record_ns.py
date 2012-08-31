@@ -4,9 +4,12 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["AddRecord_NS"]
+
+
 @Action.register_action
 class AddRecord_NS(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to add NS record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to add record {}: {reason}"
 
     def __init__(self, **kwargs):
         super(AddRecord_NS, self).__init__(**kwargs)
@@ -23,13 +26,9 @@ class AddRecord_NS(RecordAction):
         else:
             return False
 
-    def _make_error_msg(self, reason):
-        rec = "{{zone='{0}', domain='{1}', ttl='{2}'}}".format(
+    def desc(self):
+        return "{{type='NS', zone='{}', domain='{}', ttl='{}'}}".format(
                 self.zone, self.domain, self.ttl)
-        return self.ERROR_MSG_TEMPLATE.format(
-                    rec=rec,
-                    reason=reason
-                )
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

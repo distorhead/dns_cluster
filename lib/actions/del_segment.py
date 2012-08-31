@@ -6,10 +6,12 @@ from lib.action import Action, ActionError
 from lib.dbstate import Dbstate
 
 
+__all__ = ["DelSegment"]
+
+
 @Action.register_action
 class DelSegment(Action, Dbstate):
-    ERROR_MSG_TEMPLATE = ("unable to delete segment '{segment}' "
-                          "[arena:'{arena}']: {reason}")
+    ERROR_MSG_TEMPLATE = "unable to delete segment {}: {reason}"
 
     def __init__(self, **kwargs):
         super(DelSegment, self).__init__(**kwargs)
@@ -39,11 +41,10 @@ class DelSegment(Action, Dbstate):
         self.update_arena(self.arena, database, txn)
 
     def _make_error_msg(self, reason):
-        return self.ERROR_MSG_TEMPLATE.format(
-                    arena=self.arena,
-                    segment=self.segment,
-                    reason=reason
-                )
+        return self.ERROR_MSG_TEMPLATE.format(self.desc(), reason=reason)
+
+    def desc(self):
+        return "{{arena='{}', segment='{}'}}".format(self.arena, self.segment)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

@@ -5,6 +5,9 @@ from lib.action import Action, ActionError
 from lib.dbstate import Dbstate
 
 
+__all__ = ["DelArena"]
+
+
 @Action.register_action
 class DelArena(Action, Dbstate):
     def __init__(self, **kwargs):
@@ -19,19 +22,20 @@ class DelArena(Action, Dbstate):
         asdb = database.dbpool().arena_segment.dbhandle()
 
         if asdb.exists(self.arena, txn):
-            raise ActionError("unable to delete arena '{0}': "
-                              "arena contains segments".format(
-                                            self.arena))
+            raise ActionError("unable to delete arena {}: "
+                              "arena contains segments".format(self.desc()))
 
         if adb.exists(self.arena, txn):
             adb.delete(self.arena, txn)
         else:
-            raise ActionError("unable to delete arena '{0}': "
-                              "arena doesn't exist".format(
-                                            self.arena))
+            raise ActionError("unable to delete arena {}: "
+                              "arena doesn't exist".format(self.desc()))
 
         self.del_arena(self.arena, database, txn)
         self.update_global(database, txn)
+
+    def desc(self):
+        return "{{arena='{}'}}".format(self.arena)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

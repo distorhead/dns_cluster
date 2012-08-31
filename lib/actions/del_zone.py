@@ -7,10 +7,12 @@ from lib.dbstate import Dbstate
 from lib.common import reorder
 
 
+__all__ = ["DelZone"]
+
+
 @Action.register_action
 class DelZone(Action, Dbstate):
-    ERROR_MSG_TEMPLATE = ("unable to delete zone '{zone}' "
-                          "[arena:'{arena}', segment:'{segment}']: {reason}")
+    ERROR_MSG_TEMPLATE = "unable to delete zone {}: {reason}"
 
     def __init__(self, **kwargs):
         super(DelZone, self).__init__(**kwargs)
@@ -53,12 +55,11 @@ class DelZone(Action, Dbstate):
         self.update_segment(self.arena, self.segment, database, txn)
 
     def _make_error_msg(self, reason):
-        return self.ERROR_MSG_TEMPLATE.format(
-                    arena=self.arena,
-                    segment=self.segment,
-                    zone=self.zone,
-                    reason=reason
-                )
+        return self.ERROR_MSG_TEMPLATE.format(self.desc(), reason=reason)
+
+    def desc(self):
+        return "{{arena='{}', segment='{}', zone='{}'}}".format(
+                self.arena, self.segment, self.zone)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

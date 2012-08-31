@@ -4,9 +4,12 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["DelRecord_A"]
+
+
 @Action.register_action
 class DelRecord_A(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to delete A record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to delete record {}: {reason}"
 
     def __init__(self, **kwargs):
         super(DelRecord_A, self).__init__(**kwargs)
@@ -22,13 +25,9 @@ class DelRecord_A(RecordAction):
         else:
             return False
 
-    def _make_error_msg(self, reason):
-        rec = "{{zone='{0}', host='{1}', ip='{2}'}}".format(
+    def desc(self):
+        return "{{type='A', zone='{}', host='{}', ip='{}'}}".format(
                 self.zone, self.host, self.ip)
-        return self.ERROR_MSG_TEMPLATE.format(
-                    rec=rec,
-                    reason=reason
-                )
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

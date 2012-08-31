@@ -4,9 +4,12 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["AddRecord_SOA"]
+
+
 @Action.register_action
 class AddRecord_SOA(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to add SOA record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to add record {}: {reason}"
 
     def __init__(self, **kwargs):
         super(AddRecord_SOA, self).__init__(**kwargs)
@@ -32,16 +35,12 @@ class AddRecord_SOA(RecordAction):
         else:
             return False
 
-    def _make_error_msg(self, reason):
-        arec = ("{{zone='{0}', primary_ns='{1}', resp_person='{2}', "
-                "serial='{3}', refresh='{4}', retry='{5}', expire='{6}', "
-                "minimum='{7}', ttl='{8}'}}".format(self.zone, self.primary_ns,
+    def desc(self):
+        return ("{{type='SOA', zone='{}', primary_ns='{}', resp_person='{}', "
+                "serial='{}', refresh='{}', retry='{}', expire='{}', "
+                "minimum='{}', ttl='{}'}}".format(self.zone, self.primary_ns,
                 self.resp_person, self.serial, self.refresh, self.retry, self.expire,
                 self.minimum, self.ttl))
-        return self.ERROR_MSG_TEMPLATE.format(
-                    rec=rec,
-                    reason=reason
-                )
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

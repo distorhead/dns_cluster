@@ -7,10 +7,12 @@ from lib.dbstate import Dbstate
 from lib.common import reorder
 
 
+__all__ = ["AddZone"]
+
+
 @Action.register_action
 class AddZone(Action, Dbstate):
-    ERROR_MSG_TEMPLATE = ("unable to add zone '{zone}' "
-                          "[arena:'{arena}', segment:'{segment}']: {reason}")
+    ERROR_MSG_TEMPLATE = "unable to add zone {}: {reason}"
 
     def __init__(self, **kwargs):
         super(AddZone, self).__init__(**kwargs)
@@ -41,8 +43,8 @@ class AddZone(Action, Dbstate):
             zdb.put(zone_rname, sz_key, txn)
         else:
             arena_segm = zdb.get(zone_rname, txn)
-            raise ActionError(self._make_error_msg("zone already exists in '{0}'".format(
-                              arena_segm)))
+            raise ActionError(self._make_error_msg("zone already exists in "
+                                                   "'{0}'".format(arena_segm)))
 
         zones = bdb_helpers.get_all(szdb, sz_key, txn)
         if not self.zone in zones:
@@ -51,12 +53,11 @@ class AddZone(Action, Dbstate):
         self.update_zone(self.zone, database, txn)
 
     def _make_error_msg(self, reason):
-        return self.ERROR_MSG_TEMPLATE.format(
-                    arena=self.arena,
-                    segment=self.segment,
-                    zone=self.zone,
-                    reason=reason
-                )
+        return self.ERROR_MSG_TEMPLATE.format(self.desc(), reason=reason)
+
+    def desc(self):
+        return "{{arena='{}', segment='{}', zone='{}'}}".format(
+                self.arena, self.segment, self.zone)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

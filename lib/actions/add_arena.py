@@ -5,6 +5,9 @@ from lib.action import Action, ActionError
 from lib.dbstate import Dbstate
 
 
+__all__ = ["AddArena"]
+
+
 @Action.register_action
 class AddArena(Action, Dbstate):
     def __init__(self, **kwargs):
@@ -17,11 +20,13 @@ class AddArena(Action, Dbstate):
         if not adb.exists(self.arena, txn):
             adb.put(self.arena, '', txn)
         else:
-            raise ActionError("unable to add arena '{0}': "
-                              "arena already exists".format(
-                                            self.arena))
+            raise ActionError("unable to add arena {}: "
+                              "arena already exists".format(self.desc()))
 
         self.update_arena(self.arena, database, txn)
+
+    def desc(self):
+        return "{{arena='{}'}}".format(self.arena)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

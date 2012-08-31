@@ -4,9 +4,12 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["AddRecord_DNAME"]
+
+
 @Action.register_action
 class AddRecord_DNAME(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to add DNAME record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to add record {}: {reason}"
 
     def __init__(self, **kwargs):
         super(AddRecord_DNAME, self).__init__(**kwargs)
@@ -30,6 +33,10 @@ class AddRecord_DNAME(RecordAction):
                     rec=rec,
                     reason=reason
                 )
+
+    def desc(self):
+        return "{{type='DNAME', zone='{}', zone_dst='{}', ttl='{}'}}".format(
+                self.zone, self.zone_dst, self.ttl)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

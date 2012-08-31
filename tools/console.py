@@ -18,71 +18,12 @@ from lib.dbstate import Dbstate
 from lib.app.sync.sync import SyncApp
 
 
-# Read command line options and setup config
-
-cfg = {
-    "database": {
-        "dbenv_homedir": "/var/lib/bind",
-        "dbfile": "dlz.db"
-    },
-
-    "server": {
-        "name": "sync",
-        "interface": "localhost",
-        "port": 1234
-    },
-
-    "peers": {}
-}
-
-args = sys.argv[1:]
-optlist, _ = getopt.getopt(args, "pc:")
-options = dict(optlist)
-
-if options.has_key("-c"):
-    cfg_path = options["-c"]
-    top_mod = __import__(cfg_path)
-
-    for mod in cfg_path.split('.')[1:]:
-        top_mod = getattr(top_mod, mod)
-
-    cfg = top_mod.cfg
-
-
-if options.has_key("-p"):
-    shutil.rmtree(cfg["database"]["dbenv_homedir"])
-    os.mkdir(cfg["database"]["dbenv_homedir"])
-    open(cfg["database"]["dbenv_homedir"] + "/.holder", 'w')
-
-##################################
-
-
-sp = ServiceProvider(init_srv=True, cfg=cfg)
-database = sp.get("database")
-action_journal = sp.get("action_journal")
-
-
-_sync_app_dbpool = lib.database.DatabasePool(SyncApp.DATABASES,
-                                             database.dbenv(),
-                                             database.dbfile())
-
-
-adb  = database.dbpool().arena.dbhandle()
-asdb = database.dbpool().arena_segment.dbhandle()
-szdb = database.dbpool().segment_zone.dbhandle()
-zddb = database.dbpool().zone_dns_data.dbhandle()
-zdb  = database.dbpool().dns_zone.dbhandle()
-ddb  = database.dbpool().dns_data.dbhandle()
-xdb  = database.dbpool().dns_xfr.dbhandle()
-cdb  = database.dbpool().dns_client.dbhandle()
-jdb  = action_journal.dbpool().action.dbhandle()
-sdb  = database.dbpool().dbstate.dbhandle()
-pdb = _sync_app_dbpool.peer.dbhandle()
-
-dbstate = Dbstate()
-
-
 # Define some helper functions
+
+def purge_db(dbenv_homedir):
+    shutil.rmtree(dbenv_homedir)
+    os.mkdir(dbenv_homedir)
+    open(dbenv_homedir + "/.holder", 'w')
 
 def apply(act):
     with database.transaction() as txn:
@@ -129,6 +70,69 @@ def apply_add():
 def apply_del():
     for act in reversed(del_actions):
         apply(act)
+
+
+# Read command line options and setup config
+
+cfg = {
+    "database": {
+        "dbenv_homedir": "/var/lib/bind",
+        "dbfile": "dlz.db"
+    },
+
+    "server": {
+        "name": "sync",
+        "interface": "localhost",
+        "port": 1234
+    },
+
+    "peers": {}
+}
+
+args = sys.argv[1:]
+optlist, _ = getopt.getopt(args, "pc:")
+options = dict(optlist)
+
+if options.has_key("-c"):
+    cfg_path = options["-c"]
+    top_mod = __import__(cfg_path)
+
+    for mod in cfg_path.split('.')[1:]:
+        top_mod = getattr(top_mod, mod)
+
+    cfg = top_mod.cfg
+
+
+if options.has_key("-p"):
+    purge_db(cfg["database"]["dbenv_homedir"])
+
+##################################
+
+sp = ServiceProvider(init_srv=True, cfg=cfg)
+database = sp.get("database")
+action_journal = sp.get("action_journal")
+
+
+_sync_app_dbpool = lib.database.DatabasePool(SyncApp.DATABASES,
+                                             database.dbenv(),
+                                             database.dbfile())
+
+
+adb  = database.dbpool().arena.dbhandle()
+asdb = database.dbpool().arena_segment.dbhandle()
+szdb = database.dbpool().segment_zone.dbhandle()
+zddb = database.dbpool().zone_dns_data.dbhandle()
+zdb  = database.dbpool().dns_zone.dbhandle()
+ddb  = database.dbpool().dns_data.dbhandle()
+xdb  = database.dbpool().dns_xfr.dbhandle()
+cdb  = database.dbpool().dns_client.dbhandle()
+jdb  = action_journal.dbpool().action.dbhandle()
+sdb  = database.dbpool().dbstate.dbhandle()
+pdb = _sync_app_dbpool.peer.dbhandle()
+
+dbstate = Dbstate()
+
+
 
 
 a_add = append_add_action(add_arena.AddArena(arena='myarena'))

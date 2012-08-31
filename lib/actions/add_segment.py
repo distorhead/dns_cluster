@@ -6,10 +6,12 @@ from lib.action import Action, ActionError
 from lib.dbstate import Dbstate
 
 
+__all__ = ["AddSegment"]
+
+
 @Action.register_action
 class AddSegment(Action, Dbstate):
-    ERROR_MSG_TEMPLATE = ("unable to add segment '{segment}' "
-                          "[arena:'{arena}']: {reason}")
+    ERROR_MSG_TEMPLATE = "unable to add segment {}: {reason}"
 
     def __init__(self, **kwargs):
         super(AddSegment, self).__init__(**kwargs)
@@ -35,11 +37,10 @@ class AddSegment(Action, Dbstate):
         self.update_segment(self.arena, self.segment, database, txn)
 
     def _make_error_msg(self, reason):
-        return self.ERROR_MSG_TEMPLATE.format(
-                    arena=self.arena,
-                    segment=self.segment,
-                    reason=reason
-                )
+        return self.ERROR_MSG_TEMPLATE.format(self.desc(), reason=reason)
+
+    def desc(self):
+        return "{{arena='{}', segment='{}'}}".format(self.arena, self.segment)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

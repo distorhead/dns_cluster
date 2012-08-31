@@ -80,6 +80,9 @@ class Action(object):
     def name(self):
         return self.__class__.__name__
 
+    def desc(self):
+        return str(self)
+
     def apply(self, database, txn):
         cur_dbstate = self._current_dbstate(database, txn)
 
@@ -98,6 +101,9 @@ class Action(object):
 
     def _current_dbstate(self, database, txn):
         return self.dbstate
+
+    def __str__(self):
+        return "<{} {}>".format(self.name(), self.desc())
 
 
 @ServiceProvider.register("action_journal", deps=["database"])

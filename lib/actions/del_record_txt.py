@@ -4,9 +4,12 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["DelRecord_TXT"]
+
+
 @Action.register_action
 class DelRecord_TXT(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to delete TXT record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to delete record {}: {reason}"
 
     def __init__(self, **kwargs):
         super(DelRecord_TXT, self).__init__(**kwargs)
@@ -24,13 +27,9 @@ class DelRecord_TXT(RecordAction):
     def _format(self, text):
         return '"' + text + '"'
 
-    def _make_error_msg(self, reason):
-        rec = "{{zone='{0}', text='{1}'}}".format(
+    def desc(self):
+        return "{{type='TXT', zone='{}', text='{}'}}".format(
                 self.zone, self.text)
-        return self.ERROR_MSG_TEMPLATE.format(
-                    rec=rec,
-                    reason=reason
-                )
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

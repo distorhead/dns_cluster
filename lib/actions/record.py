@@ -17,6 +17,7 @@ class RecordAction(Action, Dbstate):
     """
 
     TTL_DEFAULT = 100
+    ERROR_MSG_TEMPLATE = "An error occured in action {}: {reason}"
 
     def __init__(self, **kwargs):
         super(RecordAction, self).__init__(**kwargs)
@@ -42,7 +43,7 @@ class RecordAction(Action, Dbstate):
             if self._is_record_equal(rlist):
                 raise ActionError(self._make_error_msg("record already exist"))
 
-        seq = database.dbpool().sequence.sequence("dns_data")
+        seq = database.dbpool().sequence.sequence("dns_data", txn=txn)
         newid = seq.get(1, txn)
         seq.close()
 
@@ -97,7 +98,7 @@ class RecordAction(Action, Dbstate):
             bdb_helpers.delete_pair(xdb, self.zone, host, txn)
 
     def _make_error_msg(self, reason):
-        assert 0, "Error message constructor is not implemented"
+        return self.ERROR_MSG_TEMPLATE.format(self.desc(), reason=reason)
 
     def _is_record_equal(self, rlist):
         assert 0, "Record equal checker is not implemented"

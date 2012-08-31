@@ -82,4 +82,11 @@ def required_type(value, type, **kwargs):
             return default
 
 
+def load_module(path):
+    top_mod = __import__(path)
+    for mod in path.split('.')[1:]:
+        top_mod = getattr(top_mod, mod)
+    return top_mod
+
+
 # vim:sts=4:ts=4:sw=4:expandtab:

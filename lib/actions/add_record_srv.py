@@ -4,9 +4,12 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["AddRecord_SRV"]
+
+
 @Action.register_action
 class AddRecord_SRV(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to add SRV record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to add record {}: {reason}"
     PRIORITY_DEFAULT = 10
     WEIGHT_DEFAULT = 1
 
@@ -36,15 +39,11 @@ class AddRecord_SRV(RecordAction):
         else:
             return False
 
-    def _make_error_msg(self, reason):
-        rec = ("{{zone='{0}', service='{1}', priority='{2}', weight='{3}', "
-               "port='{4}', domain='{5}', ttl='{6}'}}".format(
-               self.zone, self.service, self.priority, self.weight,
-               self.port, self.domain, self.ttl))
-        return self.ERROR_MSG_TEMPLATE.format(
-                    rec=rec,
-                    reason=reason
-                )
+    def desc(self):
+        return ("{{type='SRV', zone='{}', service='{}', priority='{}', "
+                "weight='{}', port='{}', domain='{}', ttl='{}'}}".format(
+                 self.zone, self.service, self.priority, self.weight,
+                 self.port, self.domain, self.ttl))
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

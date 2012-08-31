@@ -4,9 +4,12 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["AddRecord_MX"]
+
+
 @Action.register_action
 class AddRecord_MX(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to add MX record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to add MX record {}: {reason}"
     PRIORITY_DEFAULT = 20
 
     def __init__(self, **kwargs):
@@ -27,13 +30,9 @@ class AddRecord_MX(RecordAction):
         else:
             return False
 
-    def _make_error_msg(self, reason):
-        rec = "{{zone='{0}', domain='{1}', priority='{2}', ttl='{3}'}}".format(
+    def desc(self):
+        rec = "{{type='MX', zone='{}', domain='{}', priority='{}', ttl='{}'}}".format(
                 self.zone, self.domain, self.priority, self.ttl)
-        return self.ERROR_MSG_TEMPLATE.format(
-                    rec=rec,
-                    reason=reason
-                )
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

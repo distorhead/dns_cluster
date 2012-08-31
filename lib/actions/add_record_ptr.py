@@ -4,9 +4,12 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
+__all__ = ["AddRecord_PTR"]
+
+
 @Action.register_action
 class AddRecord_PTR(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to add PTR record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to add record {}: {reason}"
 
     def __init__(self, **kwargs):
         super(AddRecord_PTR, self).__init__(**kwargs)
@@ -24,13 +27,9 @@ class AddRecord_PTR(RecordAction):
         else:
             return False
 
-    def _make_error_msg(self, reason):
-        rec = "{{zone='{0}', host='{1}', domain='{2}', ttl='{3}'}}".format(
-                self.zone, self.host, self.domain, self.ttl)
-        return self.ERROR_MSG_TEMPLATE.format(
-                    rec=rec,
-                    reason=reason
-                )
+    def desc(self):
+        return ("{{type='PTR', zone='{}', host='{}', domain='{}', "
+                "ttl='{}'}}".format(self.zone, self.host, self.domain, self.ttl))
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

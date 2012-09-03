@@ -107,6 +107,9 @@ class SyncApp(object):
                 return (cur_pos, actions)
 
     def _actions_retrieved(self, res, position, peer):
+        if peer.server is None:
+            return
+
         if res is None:
             log.msg("No such position '{0}' needed for peer '{1}'".format(position,
                     peer.name))
@@ -179,6 +182,9 @@ class SyncApp(object):
             self._peers[peer.name]["pull_in_progress"] = False
 
     def _do_pull_request(self, peer):
+        if peer.client is None:
+            return
+
         d = threads.deferToThread(self._get_peer_position, peer)
         d.addCallback(self._got_peer_position, peer)
         d.addErrback(self._errback,
@@ -191,13 +197,16 @@ class SyncApp(object):
 
         pdb = self._dbpool.peer.dbhandle()
         pos = pdb.get(peer.name, None)
-        if not pos is None:
+        try:
             pos = int(pos)
-        else:
+        except:
             pos = 0
         return pos
 
     def _got_peer_position(self, pos, peer):
+        if peer.client is None:
+            return
+
         log.msg("Got server position on peer '{0}': {1}".format(peer.name, pos))
         peer.client.service.send_pull_request(pos)
         d = peer.client.service.register_event('actions_received')

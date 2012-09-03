@@ -220,10 +220,15 @@ class SyncServer(SyncService):
             if not msg.has_key("position"):
                 return
 
+            try:
+                pos = msg["position"]
+            except:
+                return
+
             self._state = self.State.PULL_REQ_RECEIVED
             d = self._es.retrieve_event('pull_request')
             if not d is None:
-                d.callback(msg["position"])
+                d.callback(pos)
 
     def _handle_cmd(self, cmd, msg):
         if cmd == Protocol.Cmd.IDENT:

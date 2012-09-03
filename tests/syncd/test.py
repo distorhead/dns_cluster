@@ -6,6 +6,8 @@ import random
 import getopt
 import signal
 import time
+import threading
+import subprocess
 
 import lib.database
 import lib.action
@@ -73,6 +75,8 @@ class Test1(unittest.TestCase):
         self._run = kwargs.get("run", False)
         self._purge = kwargs.get("purge", False)
         self._debug = kwargs.get("debug", False)
+        self._stress = kwargs.get("stress", False)
+        self._str_lock = threading.Lock()
         self.environments = {}
         random.seed()
 
@@ -156,9 +160,8 @@ class Test1(unittest.TestCase):
             sys.stdout.write(args[0].format(*args[1:]) + '\n')
 
     def stdout(self, arg):
-        if self._debug:
-            sys.stdout.write(str(arg))
-            sys.stdout.flush()
+        sys.stdout.write(str(arg))
+        sys.stdout.flush()
 
     def _get_pid(self, srv):
         path = "/run/" + srv + ".pid"
@@ -170,13 +173,29 @@ class Test1(unittest.TestCase):
             return pid
 
     def _kill_server(self, srv):
-        pid = self._get_pid(srv)
-        if not pid is None:
-            os.system("kill " + pid)
+        try:
+            pid = self._get_pid(srv)
+            if not pid is None:
+                subprocess.Popen(["kill " + pid],
+                                 stdin=subprocess.PIPE,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
+                                 shell=True)
+        except:
+            pass
+
+    def _run_server(self, srv_exec):
+        try:
+            subprocess.Popen([srv_exec],
+                             stdin=subprocess.PIPE,
+                             stdout=subprocess.PIPE,
+                             stderr=subprocess.PIPE,
+                             shell=True)
+        except:
+            pass
 
     def _database_updated(self, srv):
         pid = self._get_pid(srv)
-        self.assertIsNot(pid, None)
         os.kill(int(pid), signal.SIGUSR2)
 
     def _purge_db(self, dbenv_homedir):
@@ -189,13 +208,18 @@ class Test1(unittest.TestCase):
         cfg_mod = load_module(path)
         return cfg_mod.cfg
 
-    def _wait(self, t):
-        max_len = len(str(t))
-        while t:
+    def _wait(self, t, break_predicate, msg='Waiting', time_interval=1):
+        self.stdout('\n')
+        format = lambda t: "[{}] {}".format(t, msg)
+        max_len = len(format(t))
+        while t > 0:
             self.stdout('\r' + ' ' * max_len + '\r')
-            self.stdout(str(t))
-            time.sleep(1)
-            t -= 1
+            self.stdout(format(t))
+            time.sleep(time_interval)
+            t -= time_interval
+            if break_predicate():
+                self.stdout('\n')
+                return
         self.stdout('\n')
 
     def setUp(self):
@@ -209,11 +233,38 @@ class Test1(unittest.TestCase):
             self.environments[sname] = self.Environment(cfg, sname)
 
             if self._run:
-                os.system(srv["exec"])
+                self._run_server(srv["exec"])
+
+        if self._stress:
+            self._str_thr = threading.Thread(target=self.killer_healer)
+            self._str_thr.daemon = True
+            self.log("Running killer-healer thread")
+            self._str_thr.start()
 
     def tearDown(self):
         for srv in self.servers:
             self._kill_server(srv)
+
+    def killer_healer(self):
+        """
+        The Very Useful Function.
+        """
+
+        time.sleep(10)
+        srv_names = self.servers.keys()
+        while True:
+            sname = random.choice(srv_names)
+            srv = self.servers[sname]
+            with self._str_lock:
+                # first it kill
+                self._kill_server(sname)
+
+                time.sleep(1.0)
+
+                # then it heal
+                self._run_server(srv["exec"])
+
+            time.sleep(10)
 
 
     def _invert_action(self, act):
@@ -593,11 +644,22 @@ class Test1(unittest.TestCase):
         for record in records:
             checker(self._check_record_exists(record, env, txn))
 
-    def _check_position(self, actions_number, env, txn):
+    def _get_position(self, env, txn=None):
         pdb = env.sa_dbpool.peer.dbhandle()
-        pos = pdb.get(self.target, None, txn)
+        return int(pdb.get(self.target, None, txn))
+
+    def _check_position(self, actions_number, env, txn):
+        pos = self._get_position(env, txn)
         self.log("[{}] Checking position of '{}': {}", env.name, self.target, pos)
-        self.assertTrue(pos == str(actions_number))
+        self.assertTrue(pos == actions_number)
+
+    def _servers_updated(self, actions_number):
+        for _, env in self.environments.iteritems():
+            if env.name != self.target:
+                pos = self._get_position(env)
+                if (pos is None) or (pos != actions_number):
+                    return False
+        return True
 
 
     def runTest(self):
@@ -605,7 +667,7 @@ class Test1(unittest.TestCase):
         env = self.environments[self.target]
         # Create data set on target server
         with env.database.transaction() as txn:
-            arenas = self._create_arenas(10, 20, env, txn)
+            arenas = self._create_arenas(5, 15, env, txn)
             segments = self._create_segments(arenas, 1, 5, env, txn)
             zones, ptr_zones = self._create_zones(segments, 2, 5, 0, 2, env, txn)
             records = self._create_records(zones, 10, 20, env, txn)
@@ -623,10 +685,11 @@ class Test1(unittest.TestCase):
 
         self.log("Total actions: {}", actions_number)
         self.log("Sending database updated signal to target server '{}'", self.target)
-        self._database_updated(self.target)
+        with self._str_lock:
+            self._database_updated(self.target)
 
-        self.log("Waiting before update on peers occurs")
-        self._wait(160)
+        msg = "Awaiting before add-update on peers occurs"
+        self._wait(240, lambda: self._servers_updated(actions_number), msg)
 
         # Check data added on remote servers
         for sname, env in self.environments.iteritems():
@@ -667,10 +730,11 @@ class Test1(unittest.TestCase):
 
         self.log("Total actions: {}", actions_number)
         self.log("Sending database updated signal to target server '{}'", self.target)
-        self._database_updated(self.target)
+        with self._str_lock:
+            self._database_updated(self.target)
 
-        self.log("Waiting before update on peers occurs")
-        self._wait(160)
+        msg = "Awaiting before delete-update on peers occurs"
+        self._wait(240, lambda: self._servers_updated(actions_number), msg)
 
         for sname, env in self.environments.iteritems():
             if sname != self.target:
@@ -683,7 +747,7 @@ class Test1(unittest.TestCase):
 
 if __name__ == '__main__':
     args = sys.argv[1:]
-    optlist, _ = getopt.getopt(args, "dprt:")
+    optlist, _ = getopt.getopt(args, "sdprt:")
     options = dict(optlist)
 
     if options.has_key("-d"):
@@ -701,10 +765,17 @@ if __name__ == '__main__':
     else:
         run = False
 
+    if options.has_key("-s"):
+        stress = True
+    else:
+        stress = False
+
     target_server = options.get("-t", None)
 
     suite = unittest.TestSuite()
-    suite.addTest(Test1(target_server, run=run, purge=purge, debug=debug))
+    suite.addTest(Test1(target_server,
+                        run=run, purge=purge,
+                        debug=debug, stress=stress))
     unittest.TextTestRunner(verbosity=2).run(suite)
 
 

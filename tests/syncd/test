@@ -4,47 +4,12 @@ SCRIPT_DIR=$(dirname $0)
 export PYTHONPATH=$SCRIPT_DIR/../../
 
 PYTEST=$SCRIPT_DIR/test.py
-SERVERS=(alpha beta)
+SERVERS="alpha beta gamma"
 
-
-purge_db()
-{
-    echo Purging database for $1
-    $SCRIPT_DIR/../console/$1 -p &> /dev/null <<EOF
-EOF
-}
-
-
-run_daemon()
-{
-    echo Running twisd daemon $1
-    pushd .
-    cd $SCRIPT_DIR/../../
-    ./tests/syncd/$1
-    popd
-}
-
-
-kill_daemon()
-{
-    kill -9 $(cat /run/$1.pid)
-}
-
-
-run_test()
-{
-    echo Running test for target $1
-    python $PYTEST -t $1 &
-}
-
-
-run_all()
-{
-    for srv in $SERVERS
-    do
-        purge_db $srv
-        kill_daemon $srv
-        run_daemon $srv
-        run_test $srv
-    done
-}
+for srv in $SERVERS
+do
+    rm -f /run/$srv.pid &> /dev/null
+done
+rm -rf *.log* &> /dev/null
+killall -9 twistd &> /dev/null
+python $PYTEST $@

@@ -9,7 +9,7 @@ from twisted.python import log
 
 
 class SyncApp(object):
-    ACTIONS_BATCH_SIZE = 5
+    ACTIONS_BATCH_SIZE = 50
 
     DATABASES = {
         "peer": {

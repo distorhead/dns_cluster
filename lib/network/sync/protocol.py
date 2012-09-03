@@ -57,8 +57,9 @@ class YamlMsgProtocol(LineReceiver):
     def send_message(self, msg):
         msg_dump = self._emit_msg(msg)
         if not msg_dump is None:
-            resp = msg_dump + "\r\n\r\n"
-            self.transport.write(resp)
+            resp_lines = msg_dump.splitlines() + ['']
+            while resp_lines:
+                self.sendLine(resp_lines.pop(0))
         else:
             log.err("Unable to send message '{0}'".format(repr(msg)))
 

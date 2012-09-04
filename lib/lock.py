@@ -1,75 +1,15 @@
 # -*- coding: utf-8 -*-
 
 from twisted.python import log
-from twisted.internet import reactor, defer
+from twisted.internet import reactor, defer, threads
+
 
 from lib import database
 from lib import bdb_helpers
 from lib.service import ServiceProvider
 
 
-class LockError(Exception): pass
-
-
-class Lock(object):
-    """
-    Class provides wrapper over lock manager with object 
-    interface and context manager support.
-    """
-
-    def __init__(self, resource, sessid, timeout, lock_manager):
-        self._resource = resource
-        self._sessid = sessid
-        self._timeout = timeout
-        self._used = False
-        self._locked = False
-        self._lock_manager = lock_manager
-
-    def _check_used(self):
-        if self._used:
-            raise LockError("Lock object must not be used repeatedly")
-
-    def __enter__(self):
-        return self.acquire()
-
-    def __exit__(self, type, value, traceback):
-        self.release()
-
-    def acquire(self):
-        self._check_used()
-        if self._locked:
-            raise LockError("Lock is already acquired")
-
-        res = self._lock_manager.acquire(self._resource,
-                self._sessid, self._timeout)
-        self._locked = True
-        return res
-
-    def release(self):
-        self._check_used()
-        if not self._locked:
-            raise LockError("Lock is not acquired")
-
-        self._lock_manager.release(self._resource)
-        self._used = True
-
-    def is_locked(self):
-        if not self._used:
-            return self._locked
-        else:
-            return False
-
-    def is_used(self):
-        return self._used
-
-    def resource(self):
-        return self._resource
-
-    def sessid(self):
-        return self._sessid
-
-
-@ServiceProvider.register("lock", deps=["database"])
+@ServiceProvider.register("locker", deps=["database"])
 class manager(object):
     """
     Class used to manage resorces locks.
@@ -79,8 +19,10 @@ class manager(object):
 
     RESOURCE_DELIMITER = "::"
     RECORD_DELIMITER = " "
-    WAIT_INTERVAL_SECONDS_DEFAULT = 2
-    WAIT_COUNTER_MAX = 10
+
+    TIMEOUT_DEFAULT = 30.0
+    WAIT_INTERVAL_SECONDS_DEFAULT = 2.0
+    MAX_ATTEMPTS_DEFAULT = 10
 
     DATABASES = {
         "lock": {
@@ -95,24 +37,187 @@ class manager(object):
         }
     }
 
+    class Lock(object):
+        def __init__(self, resource, sessid, timeout, wait_interval,
+                     max_attempts, user_defer):
+            self.resource = resource
+            self.sessid = int(sessid)
+            self.timeout = timeout
+            self.wait_interval = wait_interval
+            self.max_attempts = max_attempts
+            self.user_defer = user_defer
+            self.attempt = 1
+
     def __init__(self, sp, *args, **kwargs):
         self._database = sp.get("database")
         self._dbpool = database.DatabasePool(self.DATABASES,
                                              self._database.dbenv(),
                                              self._database.dbfile())
 
-    def lock(self, resource, sessid, timeout=None):
-        return Lock(resource, sessid, timeout, self)
+    def dbpool(self):
+        return self._dbpool
 
-    def acquire(self, resource, sessid, timeout=None):
-        if timeout is None:
-            timeout = self.WAIT_INTERVAL_SECONDS_DEFAULT
+    def acquire(self, resource, sessid, **kwargs):
+        """
+        Acquire lock for resource in given session.
+        After timeout (in seconds) the lock will be released automatically.
+        If lock cannot be acquired now, attempt will be repeated after
+            wait_interval seconds. Maximum max_attempts allowed. To turn it off
+            set max_attempts=0, it will try forever.
+        All database related work will be in separate threads.
+        Method returns deferred that will fire up when lock acquired.
+        If lock is not acquired after specified number of attempts,
+            then errback will be called.
+        """
 
-        return self._do_acquire(resource, sessid, timeout, None, 1)
+        timeout = kwargs.get("timeout", self.TIMEOUT_DEFAULT)
+        wait_interval = kwargs.get("wait_interval", self.WAIT_INTERVAL_SECONDS_DEFAULT)
+        max_attempts = kwargs.get("max_attempts", self.MAX_ATTEMPTS_DEFAULT)
+        user_defer = defer.Deferred()
+
+        l = self.Lock(resource, sessid, timeout, wait_interval,
+                      max_attempts, user_defer)
+        self._try_acquire(l)
+        return user_defer
 
     def release(self, resource):
-        ldb = self.dbpool().lock.open()
-        lhdb = self.dbpool().lock_hier.open()
+        d = threads.deferToThread(self._do_release, resource)
+
+        def eb(failure):
+            log.err("Unable to release lock for resource '{}'".format(resource))
+            return failure
+
+        d.addErrback(eb)
+        return d
+
+
+    def _try_acquire(self, l):
+        d = threads.deferToThread(self._do_acquire, l)
+        d.addCallback(self._on_acquire_result, l)
+
+        def eb(failure):
+            log.err("Unable to acquire lock for resource '{}' in session '{}'".format(
+                     l.resource, l.sessid))
+            l.user_defer.errback(failure)
+
+        d.addErrback(eb)
+
+    def _do_acquire(self, l):
+        """
+        Method uses DB blocking API calls and should be called from separate thread.
+        Returns True if lock is acquired, False otherwise.
+        """
+
+        ldb = self.dbpool().lock.dbhandle()
+        lhdb = self.dbpool().lock_hier.dbhandle()
+
+        with self._database.transaction() as txn:
+            if ldb.exists(l.resource, txn):
+                # lock already exists
+                print "lock already exists"
+                rec = ldb.get(l.resource, txn)
+                rec_list = rec.split(self.RECORD_DELIMITER)
+
+                rec_sessid = int(rec_list[0])
+                if l.sessid == rec_sessid:
+                    # updating existed lock counter
+                    print "updating existed lock counter"
+                    rec_count = int(rec_list[1])
+                    rec_count += 1
+                    rec_list[1] = str(rec_count)
+                    ldb.put(l.resource, self.RECORD_DELIMITER.join(rec_list), txn)
+                    return True
+                else:
+                    # lock in other session, delay repeat call
+                    print "lock in other session, delay repeat call"
+                    return False
+
+            else:
+                # lock doesn't exist, checking for common and special locks
+                print "lock doesn't exist, checking for common locks"
+                resource_list = l.resource.split(self.RESOURCE_DELIMITER)
+                parent_res = ""
+                for res in resource_list[:-1]:
+                    if parent_res:
+                        res = parent_res + self.RESOURCE_DELIMITER + res;
+                    parent_res = res
+                    print "checking", res
+
+                    if ldb.exists(res, txn):
+                        # common lock exists
+                        rec = ldb.get(res, txn)
+                        rec_list = rec.split(self.RECORD_DELIMITER)
+                        rec_sessid = int(rec_list[0])
+                        if l.sessid == rec_sessid:
+                            # common lock belongs to this session, acquiring
+                            print "common lock in this session exists, acquiring"
+                            self._insert_lock(l, txn)
+                            return True
+                        else:
+                            # common lock belongs to other session, delay repeat call
+                            print("common lock in other session exists, "
+                                  "delay repeat call")
+                            return False
+
+                # check for special lock
+                print("common locks don't exist, checking special locks "
+                      "for this resource")
+                ldb_keys = bdb_helpers.get_all(lhdb, l.resource, txn)
+                for ldb_key in ldb_keys:
+                    if ldb.exists(ldb_key, txn):
+                        rec = ldb.get(ldb_key, txn)
+                        rec_list = rec.split(self.RECORD_DELIMITER)
+                        rec_sessid = int(rec_list[0])
+                        if l.sessid != rec_sessid:
+                            # special lock in other session exists,
+                            #   delay repeat call
+                            print("special lock in other session exists, "
+                                  "delay repeat call")
+                            return False
+
+                # special locks don't exist or all locks
+                #   from this session, acquiring
+                print("special locks don't exist "
+                      "or all from this session, acquiring")
+                self._insert_lock(l, txn)
+                return True
+
+    def _on_acquire_result(self, is_acquired, l):
+        if is_acquired:
+            reactor.callLater(l.timeout, self.release, l.resource)
+            l.user_defer.callback((l.resource, l.sessid))
+        elif l.attempt == l.max_attempts:
+            # no errback, exceptions is for exceptional situations
+            l.user_defer.callback(None)
+        else:
+            l.attempt += 1
+            reactor.callLater(l.wait_interval, self._try_acquire, l)
+
+    def _insert_lock(self, l, txn):
+        ldb = self.dbpool().lock.dbhandle()
+        lhdb = self.dbpool().lock_hier.dbhandle()
+
+        rec = str(l.sessid) + self.RECORD_DELIMITER + "1"
+        ldb.put(l.resource, rec, txn)
+
+        def inserter(res):
+            print 'inserting', res, 'into lock_hier database for resource', l.resource
+            lhdb.put(res, l.resource, txn)
+
+        resource_list = l.resource.split(self.RESOURCE_DELIMITER)
+        self._for_each_resource(resource_list[:-1], inserter)
+
+    def _for_each_resource(self, resource_list, func):
+        parent_res = ""
+        for res in resource_list:
+            if parent_res:
+                res = parent_res + self.RESOURCE_DELIMITER + res;
+            parent_res = res
+            func(res)
+
+    def _do_release(self, resource):
+        ldb = self.dbpool().lock.dbhandle()
+        lhdb = self.dbpool().lock_hier.dbhandle()
 
         def do_delete():
             def deleter(res):
@@ -124,13 +229,15 @@ class manager(object):
 
             bdb_helpers.delete(ldb, resource, txn)
 
+        sessid = None
         with self._database.transaction() as txn:
             if ldb.exists(resource, txn):
                 rec = ldb.get(resource, txn)
                 rec_list = rec.split(self.RECORD_DELIMITER)
 
                 if len(rec_list) == 2:
-                    count = self._to_int(rec_list[1])
+                    sessid = int(rec_list[0])
+                    count = int(rec_list[1])
                     if count > 1:
                         rec_list[1] = str(count - 1)
                         rec = self.RECORD_DELIMITER.join(rec_list)
@@ -140,144 +247,7 @@ class manager(object):
                 else:
                     do_delete()
 
-        ldb.close()
-        lhdb.close()
-
-    def dbpool(self):
-        return self._dbpool
-
-
-    def _do_acquire(self, resource, sessid, timeout, deferred, count):
-        ldb = self.dbpool().lock.open()
-        lhdb = self.dbpool().lock_hier.open()
-        sessid = int(sessid)
-
-        def finalize():
-            ldb.close()
-            lhdb.close()
-
-        with self._database.transaction() as txn:
-            if ldb.exists(resource, txn):
-                # lock already exists
-                print "lock already exists"
-                rec = ldb.get(resource, txn)
-                rec_list = rec.split(self.RECORD_DELIMITER)
-
-                rec_sessid = self._to_int(rec_list[0])
-                if sessid == rec_sessid:
-                    # updating existed lock counter
-                    print "updating existed lock counter"
-                    rec_count = self._to_int(rec_list[1])
-                    rec_count += 1
-                    rec_list[1] = str(rec_count)
-                    ldb.put(resource, self.RECORD_DELIMITER.join(rec_list), txn)
-                    finalize()
-                    return self._finalize_acquire(resource, sessid, deferred)
-                else:
-                    # lock in other session, delay repeat call
-                    print "lock in other session, delay repeat call"
-                    finalize()
-                    return self._defer_acquire(resource, sessid, timeout,
-                                               deferred, count)
-            else:
-                # lock doesn't exist, checking for common locks
-                print "lock doesn't exist, checking for common locks"
-                resource_list = resource.split(self.RESOURCE_DELIMITER)
-                parent_res = ""
-                for res in resource_list[:-1]:
-                    if parent_res:
-                        res = parent_res + self.RESOURCE_DELIMITER + res;
-                    parent_res = res
-                    print 'checking', res
-
-                    if ldb.exists(res, txn):
-                        rec = ldb.get(res, txn)
-                        rec_list = rec.split(self.RECORD_DELIMITER)
-                        rec_sessid = self._to_int(rec_list[0])
-                        if sessid == rec_sessid:
-                            # common lock in this session exists, acquiring
-                            print "common lock in this session exists, acquiring"
-                            self._insert_lock(resource, sessid, ldb, lhdb, txn)
-                            finalize()
-                            return self._finalize_acquire(resource, sessid, deferred)
-                        else:
-                            # common lock in other session exists,
-                            #   delay repeat call
-                            print("common lock in other session exists, "
-                                  "delay repeat call")
-                            finalize()
-                            return self._defer_acquire(resource, sessid, timeout,
-                                                       deferred, count)
-
-                # common locks don't exist, checking special locks
-                #   for this resource
-                print("common locks don't exist, checking special locks "
-                      "for this resource")
-                ldb_keys = bdb_helpers.get_all(lhdb, resource, txn)
-                for ldb_key in ldb_keys:
-                    if ldb.exists(ldb_key, txn):
-                        rec = ldb.get(ldb_key, txn)
-                        rec_list = rec.split(self.RECORD_DELIMITER)
-                        rec_sessid = self._to_int(rec_list[0])
-                        if sessid != rec_sessid:
-                            # special lock in other session exists,
-                            #   delay repeat call
-                            print("special lock in other session exists, "
-                                  "delay repeat call")
-                            finalize()
-                            return self._defer_acquire(resource, sessid, timeout,
-                                                       deferred, count)
-
-                # special locks don't exist or all locks
-                #   from this session, acquiring
-                print("special locks don't exist "
-                      "or all from this session, acquiring")
-                self._insert_lock(resource, sessid, ldb, lhdb, txn)
-                finalize()
-                return self._finalize_acquire(resource, sessid, deferred)
-
-    def _finalize_acquire(self, resource, sessid, deferred):
-        if deferred is None:
-            return defer.succeed((resource, sessid))
-        else:
-            deferred.callback((resource, sessid))
-            return None
-
-    def _defer_acquire(self, resource, sessid, timeout, deferred, count):
-        if deferred is None:
-            deferred = defer.Deferred()
-        elif count > self.WAIT_COUNTER_MAX:
-            deferred.errback((resource, sessid))
-            return
-
-        reactor.callLater(timeout**count, self._do_acquire, resource,
-                          sessid, timeout, deferred, count+1)
-        return deferred
-
-    def _insert_lock(self, resource, sessid, ldb, lhdb, txn):
-        rec = str(sessid) + self.RECORD_DELIMITER + str(1)
-        ldb.put(resource, rec, txn)
-
-        def inserter(res):
-            print 'inserting', res, 'into lock_hier database for resource', resource
-            lhdb.put(res, resource, txn)
-
-        resource_list = resource.split(self.RESOURCE_DELIMITER)
-        self._for_each_resource(resource_list[:-1], inserter)
-
-    def _for_each_resource(self, resource_list, func):
-        parent_res = ""
-        for res in resource_list:
-            if parent_res:
-                res = parent_res + self.RESOURCE_DELIMITER + res;
-            parent_res = res
-            func(res)
-
-    def _to_int(self, val):
-        try:
-            return int(val)
-        except ValueError as e:
-            raise LockError(e)
+        return (resource, sessid)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

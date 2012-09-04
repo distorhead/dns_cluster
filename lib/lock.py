@@ -112,10 +112,10 @@ class manager(object):
         lhdb = self.dbpool().lock_hier.dbhandle()
 
         with self._database.transaction() as txn:
-            if ldb.exists(l.resource, txn):
+            if ldb.exists(l.resource, txn, database.bdb.DB_RMW):
                 # lock already exists
                 print "lock already exists"
-                rec = ldb.get(l.resource, txn)
+                rec = ldb.get(l.resource, None, txn, database.bdb.DB_RMW)
                 rec_list = rec.split(self.RECORD_DELIMITER)
 
                 rec_sessid = int(rec_list[0])
@@ -143,9 +143,9 @@ class manager(object):
                     parent_res = res
                     print "checking", res
 
-                    if ldb.exists(res, txn):
+                    if ldb.exists(res, txn, database.bdb.DB_RMW):
                         # common lock exists
-                        rec = ldb.get(res, txn)
+                        rec = ldb.get(res, None, txn, database.bdb.DB_RMW)
                         rec_list = rec.split(self.RECORD_DELIMITER)
                         rec_sessid = int(rec_list[0])
                         if l.sessid == rec_sessid:
@@ -164,8 +164,8 @@ class manager(object):
                       "for this resource")
                 ldb_keys = bdb_helpers.get_all(lhdb, l.resource, txn)
                 for ldb_key in ldb_keys:
-                    if ldb.exists(ldb_key, txn):
-                        rec = ldb.get(ldb_key, txn)
+                    if ldb.exists(ldb_key, txn, database.bdb.DB_RMW):
+                        rec = ldb.get(ldb_key, None, txn, database.bdb.DB_RMW)
                         rec_list = rec.split(self.RECORD_DELIMITER)
                         rec_sessid = int(rec_list[0])
                         if l.sessid != rec_sessid:
@@ -231,8 +231,8 @@ class manager(object):
 
         sessid = None
         with self._database.transaction() as txn:
-            if ldb.exists(resource, txn):
-                rec = ldb.get(resource, txn)
+            if ldb.exists(resource, txn, database.bdb.DB_RMW):
+                rec = ldb.get(resource, None, txn, database.bdb.DB_RMW)
                 rec_list = rec.split(self.RECORD_DELIMITER)
 
                 if len(rec_list) == 2:

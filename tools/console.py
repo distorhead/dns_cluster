@@ -117,7 +117,7 @@ if options.has_key("-p"):
 sp = ServiceProvider(init_srv=True, cfg=cfg)
 database = sp.get("database")
 action_journal = sp.get("action_journal")
-locker = sp.get("locker")
+lock = sp.get("lock")
 
 
 _sync_app_dbpool = lib.database.DatabasePool(SyncApp.DATABASES,
@@ -136,8 +136,8 @@ cdb  = database.dbpool().dns_client.dbhandle()
 jdb  = action_journal.dbpool().action.dbhandle()
 sdb  = database.dbpool().dbstate.dbhandle()
 pdb = _sync_app_dbpool.peer.dbhandle()
-ldb = locker.dbpool().lock.dbhandle()
-lhdb = locker.dbpool().lock_hier.dbhandle()
+ldb = lock.dbpool().lock.dbhandle()
+lhdb = lock.dbpool().lock_hier.dbhandle()
 
 dbstate = Dbstate()
 

@@ -17,6 +17,7 @@ import lib.session
 from lib.bdb_helpers import *
 from lib.service import ServiceProvider
 from lib.actions import *
+from lib.operations import *
 from lib.action import Action
 from lib.dbstate import Dbstate
 from lib.app.sync.sync import SyncApp
@@ -149,47 +150,50 @@ dbstate = Dbstate()
 
 
 
-a_add = append_add_action(add_arena.AddArena(arena='myarena'))
-s_add = append_add_action(add_segment.AddSegment(arena='myarena', segment='mysegment'))
-z_add = append_add_action(add_zone.AddZone(arena='myarena', segment='mysegment', zone='myzone'))
-rcname_add = append_add_action(add_record_cname.AddRecord_CNAME(zone='myzone', host='go',
+a_add = append_add_action(AddArena(arena='myarena'))
+s_add = append_add_action(AddSegment(arena='myarena', segment='mysegment'))
+z_add = append_add_action(AddZone(arena='myarena', segment='mysegment', zone='myzone'))
+rcname_add = append_add_action(AddRecord_CNAME(zone='myzone', host='go',
                         domain='www.yandex.ru.', ttl=101))
-ra_add = append_add_action(add_record_a.AddRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4', ttl=10))
-z2_add = append_add_action(add_zone.AddZone(arena='myarena', segment='mysegment', zone='myzone2'))
-rdname_add = append_add_action(add_record_dname.AddRecord_DNAME(zone='myzone2', zone_dst="myzone."))
-rns_add = append_add_action(add_record_ns.AddRecord_NS(zone='myzone', domain="ns.myzone."))
-rns2_add = append_add_action(add_record_ns.AddRecord_NS(zone='myzone', domain="ns2.myzone."))
-rmx_add = append_add_action(add_record_mx.AddRecord_MX(zone='myzone', domain="mail.myzone."))
-z3_add = append_add_action(add_zone.AddZone(arena='myarena', segment='mysegment',
+ra_add = append_add_action(AddRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4', 
+                                       ttl=10))
+z2_add = append_add_action(AddZone(arena='myarena', segment='mysegment', 
+                                   zone='myzone2'))
+rdname_add = append_add_action(AddRecord_DNAME(zone='myzone2', zone_dst="myzone."))
+rns_add = append_add_action(AddRecord_NS(zone='myzone', domain="ns.myzone."))
+rns2_add = append_add_action(AddRecord_NS(zone='myzone', domain="ns2.myzone."))
+rmx_add = append_add_action(AddRecord_MX(zone='myzone', domain="mail.myzone."))
+z3_add = append_add_action(AddZone(arena='myarena', segment='mysegment',
                                      zone='3.2.1.in-addr.arpa'))
-rptr_add = append_add_action(add_record_ptr.AddRecord_PTR(zone='3.2.1.in-addr.arpa', host='4',
+rptr_add = append_add_action(AddRecord_PTR(zone='3.2.1.in-addr.arpa', host='4',
                                                    domain='fuuu.myzone.', ttl=107))
-rsoa_add = append_add_action(add_record_soa.AddRecord_SOA(zone='myzone2', primary_ns='ns.myzone.',
+rsoa_add = append_add_action(AddRecord_SOA(zone='myzone2', primary_ns='ns.myzone.',
                                              resp_person='sdf', serial=10, refresh=30,
                                              retry=21, expire=21, minimum=12, ttl=123))
-rsrv_add = append_add_action(add_record_srv.AddRecord_SRV(zone='myzone', service='_httpd._tcp',
+rsrv_add = append_add_action(AddRecord_SRV(zone='myzone', service='_httpd._tcp',
                                                    port=8080, domain='web.myzone.'))
-rtxt_add = append_add_action(add_record_txt.AddRecord_TXT(zone='myzone', text='!dlroW ,olleH'))
+rtxt_add = append_add_action(AddRecord_TXT(zone='myzone', text='!dlroW ,olleH'))
 
-a_del = append_del_action(del_arena.DelArena(arena='myarena'))
-s_del = append_del_action(del_segment.DelSegment(arena='myarena', segment='mysegment'))
-z_del = append_del_action(del_zone.DelZone(arena='myarena', segment='mysegment', zone='myzone'))
-rcname_del = append_del_action(del_record_cname.DelRecord_CNAME(zone='myzone', host='go',
+a_del = append_del_action(DelArena(arena='myarena'))
+s_del = append_del_action(DelSegment(arena='myarena', segment='mysegment'))
+z_del = append_del_action(DelZone(arena='myarena', segment='mysegment', zone='myzone'))
+rcname_del = append_del_action(DelRecord_CNAME(zone='myzone', host='go',
                         domain='www.yandex.ru.'))
-ra_del = append_del_action(del_record_a.DelRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4'))
-z2_del = append_del_action(del_zone.DelZone(arena='myarena', segment='mysegment', zone='myzone2'))
-rdname_del = append_del_action(del_record_dname.DelRecord_DNAME(zone='myzone2', zone_dst="myzone."))
-rns_del = append_del_action(del_record_ns.DelRecord_NS(zone='myzone', domain="ns.myzone."))
-rns2_del = append_del_action(del_record_ns.DelRecord_NS(zone='myzone', domain="ns2.myzone."))
-rmx_del = append_del_action(del_record_mx.DelRecord_MX(zone='myzone', domain="mail.myzone."))
-z3_del = append_del_action(del_zone.DelZone(arena='myarena', segment='mysegment',
+ra_del = append_del_action(DelRecord_A(zone='myzone', host='fuuu', ip='1.2.3.4'))
+z2_del = append_del_action(DelZone(arena='myarena', segment='mysegment', 
+                                   zone='myzone2'))
+rdname_del = append_del_action(DelRecord_DNAME(zone='myzone2', zone_dst="myzone."))
+rns_del = append_del_action(DelRecord_NS(zone='myzone', domain="ns.myzone."))
+rns2_del = append_del_action(DelRecord_NS(zone='myzone', domain="ns2.myzone."))
+rmx_del = append_del_action(DelRecord_MX(zone='myzone', domain="mail.myzone."))
+z3_del = append_del_action(DelZone(arena='myarena', segment='mysegment',
                                      zone='3.2.1.in-addr.arpa'))
-rptr_del = append_del_action(del_record_ptr.DelRecord_PTR(zone='3.2.1.in-addr.arpa', host='4',
+rptr_del = append_del_action(DelRecord_PTR(zone='3.2.1.in-addr.arpa', host='4',
                                                    domain='fuuu.myzone.'))
-rsoa_del = append_del_action(del_record_soa.DelRecord_SOA(zone='myzone2'))
-rsrv_del = append_del_action(del_record_srv.DelRecord_SRV(zone='myzone', service='_httpd._tcp',
+rsoa_del = append_del_action(DelRecord_SOA(zone='myzone2'))
+rsrv_del = append_del_action(DelRecord_SRV(zone='myzone', service='_httpd._tcp',
                                                    port=8080, domain='web.myzone.'))
-rtxt_del = append_del_action(del_record_txt.DelRecord_TXT(zone='myzone', text='!dlroW ,olleH'))
+rtxt_del = append_del_action(DelRecord_TXT(zone='myzone', text='!dlroW ,olleH'))
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

@@ -12,17 +12,11 @@ import subprocess
 import lib.database
 import lib.action
 
+from lib.actions import *
 from lib.common import load_module, split, reorder
 from lib import bdb_helpers
 from lib.service import ServiceProvider
 from lib.app.sync.sync import SyncApp
-
-
-act_mods = __import__("lib.actions", globals(), locals(), ['*'])
-for act_mod_name in act_mods.__dict__['__all__']:
-    act_mod = __import__("lib.actions." + act_mod_name, globals(), locals(), ['*'])
-    act_name = act_mod.__dict__['__all__'][0]
-    globals()[act_name] = getattr(act_mod, act_name)
 
 
 SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))

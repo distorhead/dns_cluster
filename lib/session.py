@@ -5,6 +5,8 @@ from lib import bdb_helpers
 from lib.service import ServiceProvider
 from lib.action import Action
 
+from twisted.internet import reactor
+
 
 class SessionError(Exception): pass
 
@@ -14,6 +16,8 @@ class session(object):
     """
     Class used to control user api sessions.
     """
+
+    SESSION_TIMEOUT_SECONDS = 10
 
     JOURNAL_DATABASES = {
         "session": {
@@ -42,6 +46,7 @@ class session(object):
         self._dbpool = database.DatabasePool(self.JOURNAL_DATABASES,
                                              self._database.dbenv(),
                                              self._database.dbfile())
+        self._watchdogs = {}
 
     def dbpool(self):
         return self._dbpool
@@ -51,14 +56,17 @@ class session(object):
         Get new session id.
         """
 
+        sessid = None
         sdb = self.dbpool().session.dbhandle()
         with self._database.transaction() as txn:
             seq = self.dbpool().session.sequence(txn=txn)
             id = str(seq.get(1, txn))
             sdb.put(id, '', txn)
             seq.close()
+            sessid = int(id)
 
-            return int(id)
+        self._set_session_watchdog(sessid)
+        return sessid
 
     def commit_session(self, sessid):
         with self._database.transaction() as txn:
@@ -73,6 +81,8 @@ class session(object):
                         self._action_journal.record_action_dump(act_dump, txn)
             else:
                 raise SessionError("Session '{}' doesn't exist".format(sessid))
+
+        self._unset_session_watchdog(sessid)
 
     def rollback_session(self, sessid):
         with self._database.transaction() as txn:
@@ -89,6 +99,13 @@ class session(object):
                         act.apply(self._database, txn)
             else:
                 raise SessionError("Session '{}' doesn't exist".format(sessid))
+
+        self._unset_session_watchdog(sessid)
+
+    def keepalive_session(self, sessid):
+        if self._watchdogs.has_key(sessid):
+            self._unset_session_watchdog(sessid)
+            self._set_session_watchdog(sessid)
 
     def apply_action(self, sessid, action, undo_action):
         with self._database.transaction() as txn:
@@ -107,6 +124,17 @@ class session(object):
     def _delete_session(self, sessid, txn):
         sdb = self.dbpool().session.dbhandle()
         sdb.delete(str(sessid), txn)
+
+    def _set_session_watchdog(self, sessid):
+        callid = reactor.callLater(self.SESSION_TIMEOUT_SECONDS,
+                    lambda: self.rollback_session(sessid))
+        self._watchdogs[sessid] = callid
+
+    def _unset_session_watchdog(self, sessid):
+        if self._watchdogs.has_key(sessid):
+            if self._watchdogs[sessid].active():
+                self._watchdogs[sessid].cancel()
+            del self._watchdogs[sessid]
 
     def _record_action(self, action, undo_action, txn):
         act_dump = action.serialize()

@@ -12,6 +12,7 @@ from twisted.internet import reactor
 import lib.database
 import lib.action
 import lib.lock
+import lib.session
 
 from lib.bdb_helpers import *
 from lib.service import ServiceProvider
@@ -118,6 +119,7 @@ sp = ServiceProvider(init_srv=True, cfg=cfg)
 database = sp.get("database")
 action_journal = sp.get("action_journal")
 lock = sp.get("lock")
+session = sp.get("session")
 
 
 _sync_app_dbpool = lib.database.DatabasePool(SyncApp.DATABASES,
@@ -138,6 +140,9 @@ sdb  = database.dbpool().dbstate.dbhandle()
 pdb = _sync_app_dbpool.peer.dbhandle()
 ldb = lock.dbpool().lock.dbhandle()
 lhdb = lock.dbpool().lock_hier.dbhandle()
+s_sdb = session.dbpool().session.dbhandle()
+s_ajdb = session.dbpool().action_journal.dbhandle()
+s_sadb = session.dbpool().session_action.dbhandle()
 
 dbstate = Dbstate()
 

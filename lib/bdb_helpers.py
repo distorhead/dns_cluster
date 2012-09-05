@@ -5,15 +5,18 @@ import database
 from bsddb3 import db as bdb
 
 
-def get_all(db, key, txn=None):
-    res = []
+def get_all(db, key, txn=None, **kwargs):
+    delete = kwargs.get("delete", False)
 
+    res = []
     val = db.get(key, None, txn)
     if not val is None:
         c = db.cursor(txn)
 
         kv = c.get(key, val, bdb.DB_GET_BOTH)
         while kv:
+            if delete:
+                c.delete()
             res.append(kv[1])
             kv = c.get('', '', bdb.DB_NEXT_DUP)
 

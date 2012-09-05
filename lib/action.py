@@ -131,6 +131,9 @@ class journal(object):
         return self._dbpool
 
     def record_action(self, act, txn=None, pos=None):
+        self.record_action_dump(act.serialize(), txn, pos)
+
+    def record_action_dump(self, act_dump, txn=None, pos=None):
         adb = self.dbpool().action.dbhandle()
 
         if not pos is None:
@@ -142,8 +145,7 @@ class journal(object):
         newid = seq.get(1, txn)
         seq.close()
 
-        dump = act.serialize()
-        adb.put(str(newid), dump, txn)
+        adb.put(str(newid), act_dump, txn)
 
     def get_position(self, txn=None):
         seq = self.dbpool().action.sequence()

@@ -26,8 +26,13 @@ class Operation(object):
 
         return value
 
+    @classmethod
+    def optional_data_by_key(cls, operation_data, key, type, default):
+        value = required_key(operation_data, key, default=default)
+        return required_type(value, type, default=default)
 
-    def __init__(self):
+
+    def __init__(self, **kwargs):
         self._used = False
 
     def run(self):

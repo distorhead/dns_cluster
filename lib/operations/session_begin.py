@@ -7,8 +7,8 @@ __all__ = ["SessionBeginOp"]
 
 
 class SessionBeginOp(Operation):
-    def __init__(self, session):
-        Operation.__init__(self)
+    def __init__(self, session, **kwargs):
+        Operation.__init__(self, **kwargs)
         self._session = session
 
     def _do_run(self):

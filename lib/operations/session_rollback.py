@@ -8,7 +8,7 @@ __all__ = ["SessionRollbackOp"]
 
 class SessionRollbackOp(Operation):
     def __init__(self, session, **kwargs):
-        Operation.__init__(self)
+        Operation.__init__(self, **kwargs)
         self._session = session
         self.sessid = self.required_data_by_key(kwargs, "sessid", int)
 

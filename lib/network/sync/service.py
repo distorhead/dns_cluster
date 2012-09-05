@@ -221,8 +221,10 @@ class SyncServer(SyncService):
                 return
 
             try:
-                pos = msg["position"]
+                pos = int(msg["position"])
             except:
+                log.err("Wrong position '{}' in pull request from peer '{}'".format(
+                         self.peer.name))
                 return
 
             self._state = self.State.PULL_REQ_RECEIVED

@@ -3,10 +3,10 @@
 from lib.operation import Operation
 
 
-__all__ = ["SessionRollback"]
+__all__ = ["SessionRollbackOp"]
 
 
-class SessionRollback(Operation):
+class SessionRollbackOp(Operation):
     def __init__(self, session, **kwargs):
         Operation.__init__(self)
         self._session = session

@@ -3,10 +3,10 @@
 from lib.operation import Operation
 
 
-__all__ = ["SessionCommit"]
+__all__ = ["SessionCommitOp"]
 
 
-class SessionCommit(Operation):
+class SessionCommitOp(Operation):
     def __init__(self, session, **kwargs):
         Operation.__init__(self)
         self._session = session

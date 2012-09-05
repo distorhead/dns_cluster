@@ -3,10 +3,10 @@
 from lib.operation import Operation
 
 
-__all__ = ["SessionKeepalive"]
+__all__ = ["SessionKeepaliveOp"]
 
 
-class SessionKeepalive(Operation):
+class SessionKeepaliveOp(Operation):
     def __init__(self, session, **kwargs):
         Operation.__init__(self)
         self._session = session

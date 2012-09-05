@@ -3,10 +3,10 @@
 from lib.operation import Operation
 
 
-__all__ = ["SessionBegin"]
+__all__ = ["SessionBeginOp"]
 
 
-class SessionBegin(Operation):
+class SessionBeginOp(Operation):
     def __init__(self, session):
         Operation.__init__(self)
         self._session = session

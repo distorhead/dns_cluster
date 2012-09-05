@@ -35,14 +35,14 @@ class Operation(object):
     def __init__(self, **kwargs):
         self._used = False
 
-    def run(self):
+    def run(self, database, session):
         if self._used:
             raise OperationError("Operation object must not be used repeatedly")
         else:
             self._used = True
-            return self._do_run()
+            return self._do_run(database, session)
 
-    def _do_run(self):
+    def _do_run(self, database, session):
         assert 0, "Operation _do_run method is not implemented"
 
 

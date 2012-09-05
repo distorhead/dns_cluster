@@ -5,3 +5,6 @@ from session_keepalive import *
 from add_arena import *
 from del_arena import *
 from get_arenas import *
+from add_segment import *
+from del_segment import *
+from get_segments import *

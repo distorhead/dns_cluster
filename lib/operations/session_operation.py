@@ -9,32 +9,18 @@ class SessionOperation(Operation):
     Subclasses should implement _run_in_session method.
     """
 
-    def __init__(self, session, **kwargs):
+    def __init__(self, **kwargs):
         Operation.__init__(self, **kwargs)
-        self._session = session
         self.sessid = self.optional_data_by_key(kwargs, "sessid", int, None)
 
-    def __enter__(self):
-        self.sessid = self._session.start_session()
+    def _do_run(self, database, session):
         if self.sessid is None:
-            raise OperationError("unable to start session")
-
-        return self.sessid
-
-    def __exit__(self, type, value, traceback):
-        if type is None:
-            self._session.commit_session(self.sessid)
+            with session.session() as sessid:
+                self._run_in_session(database, session, sessid)
         else:
-            self._session.rollback_session(self.sessid)
+            self._run_in_session(database, session, self.sessid)
 
-    def _do_run(self):
-        if self.sessid is None:
-            with self as sessid:
-                self._run_in_session(sessid)
-        else:
-            self._run_in_session(self.sessid)
-
-    def _run_in_session(self, sessid):
+    def _run_in_session(self, database, session, sessid):
         assert 0, "SessionOperation _run_in_session method is not implemented"
 
 

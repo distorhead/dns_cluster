@@ -6,13 +6,62 @@ from lib.service import ServiceProvider
 from lib.action import Action
 
 from twisted.internet import reactor
+from twisted.python import log
 
 
 class SessionError(Exception): pass
 
 
+class Session(object):
+    """
+    Object-like interface to begin, commit and rollback session.
+    """
+
+    def __init__(self, session_manager):
+        self._session_manager = session_manager
+        self._used = False
+
+    def _check_not_used(self):
+        if self._used:
+            raise SessionError("Session object must not be used repeatedly")
+
+    def _check_began(self):
+        if not hasattr(self, "sessid"):
+            raise SessionError("Session is not began")
+
+    def __enter__(self):
+        return self.begin()
+
+    def __exit__(self, type, value, traceback):
+        if type is None:
+            self.commit()
+        else:
+            log.err("Aborting session")
+            self.rollback()
+
+    def get(self):
+        self._check_not_used()
+        self._check_began()
+        return self.sessid
+
+    def begin(self):
+        self._check_not_used()
+        self.sessid = self._session_manager.begin_session()
+        return self.sessid
+
+    def commit(self):
+        self._check_not_used()
+        self._check_began()
+        self._session_manager.commit_session(self.sessid)
+
+    def rollback(self):
+        self._check_not_used()
+        self._check_began()
+        self._session_manager.rollback_session(self.sessid)
+
+
 @ServiceProvider.register("session", deps=["database", "action_journal"])
-class session(object):
+class manager(object):
     """
     Class used to control user api sessions.
     """
@@ -48,10 +97,13 @@ class session(object):
                                              self._database.dbfile())
         self._watchdogs = {}
 
+    def session(self):
+        return Session(self)
+
     def dbpool(self):
         return self._dbpool
 
-    def start_session(self):
+    def begin_session(self):
         """
         Get new session id.
         """

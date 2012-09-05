@@ -9,13 +9,13 @@ __all__ = ["DelArenaOp"]
 
 
 class DelArenaOp(SessionOperation):
-    def __init__(self, session, **kwargs):
-        SessionOperation.__init__(self, session, **kwargs)
+    def __init__(self, **kwargs):
+        SessionOperation.__init__(self, **kwargs)
         self._action = DelArena(**kwargs)
 
-    def _run_in_session(self, sessid):
+    def _run_in_session(self, database, session, sessid):
         undo_action = AddArena(arena=self._action.arena)
-        self._session.apply_action(sessid, self._action, undo_action)
+        session.apply_action(sessid, self._action, undo_action)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

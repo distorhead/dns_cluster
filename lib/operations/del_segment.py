@@ -1,20 +1,21 @@
 # -*- coding: utf-8 -*-
 
 from lib.operations.session_operation import SessionOperation
-from lib.actions.add_arena import AddArena
-from lib.actions.del_arena import DelArena
+from lib.actions.add_segment import AddSegment
+from lib.actions.del_segment import DelSegment
 
 
-__all__ = ["AddArenaOp"]
+__all__ = ["DelSegmentOp"]
 
 
-class AddArenaOp(SessionOperation):
+class DelSegmentOp(SessionOperation):
     def __init__(self, **kwargs):
         SessionOperation.__init__(self, **kwargs)
-        self._action = AddArena(**kwargs)
+        self._action = DelSegment(**kwargs)
 
     def _run_in_session(self, database, session, sessid):
-        undo_action = DelArena(arena=self._action.arena)
+        undo_action = AddSegment(arena=self._action.arena,
+                                 segment=self._action.segment)
         session.apply_action(sessid, self._action, undo_action)
 
 

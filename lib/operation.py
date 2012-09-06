@@ -28,21 +28,27 @@ class Operation(object):
 
     @classmethod
     def optional_data_by_key(cls, operation_data, key, type, default):
-        value = required_key(operation_data, key, default=default)
+        typecheck = True
+        def not_found(_):
+            typecheck = False
+
+        value = required_key(operation_data, key,
+                             failure_func=not_found,
+                             default=default)
         return required_type(value, type, default=default)
 
 
     def __init__(self, **kwargs):
         self._used = False
 
-    def run(self, database, session):
+    def run(self):
         if self._used:
             raise OperationError("Operation object must not be used repeatedly")
         else:
             self._used = True
-            return self._do_run(database, session)
+            return self._do_run()
 
-    def _do_run(self, database, session):
+    def _do_run(self):
         assert 0, "Operation _do_run method is not implemented"
 
 

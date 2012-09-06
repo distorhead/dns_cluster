@@ -7,12 +7,13 @@ __all__ = ["SessionRollbackOp"]
 
 
 class SessionRollbackOp(Operation):
-    def __init__(self, **kwargs):
+    def __init__(self, session_srv, **kwargs):
         Operation.__init__(self, **kwargs)
+        self.session_srv = session_srv
         self.sessid = self.required_data_by_key(kwargs, "sessid", int)
 
-    def _do_run(self, database, session):
-        session.rollback_session(self.sessid)
+    def _do_run(self):
+        self.session_srv.rollback_session(self.sessid)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

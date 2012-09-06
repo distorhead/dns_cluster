@@ -9,14 +9,14 @@ __all__ = ["DelSegmentOp"]
 
 
 class DelSegmentOp(SessionOperation):
-    def __init__(self, **kwargs):
-        SessionOperation.__init__(self, **kwargs)
+    def __init__(self, session_srv, **kwargs):
+        SessionOperation.__init__(self, session_srv, **kwargs)
         self._action = DelSegment(**kwargs)
 
-    def _run_in_session(self, database, session, sessid):
+    def _run_in_session(self, sessid):
         undo_action = AddSegment(arena=self._action.arena,
                                  segment=self._action.segment)
-        session.apply_action(sessid, self._action, undo_action)
+        self.session_srv.apply_action(sessid, self._action, undo_action)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

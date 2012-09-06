@@ -8,8 +8,12 @@ __all__ = ["GetArenasOp"]
 
 
 class GetArenasOp(Operation):
-    def _do_run(self, database, session):
-        adb = database.dbpool().arena.dbhandle()
+    def __init__(self, database_srv, **kwargs):
+        Operation.__init__(self, **kwargs)
+        self.database_srv = database_srv
+
+    def _do_run(self):
+        adb = self.database_srv.dbpool().arena.dbhandle()
         return bdb_helpers.keys(adb)
 
 

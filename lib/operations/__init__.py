@@ -8,3 +8,6 @@ from get_arenas import *
 from add_segment import *
 from del_segment import *
 from get_segments import *
+from add_zone import *
+from del_zone import *
+from get_zones import *

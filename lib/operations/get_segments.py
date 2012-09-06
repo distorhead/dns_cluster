@@ -8,12 +8,13 @@ __all__ = ["GetSegmentsOp"]
 
 
 class GetSegmentsOp(Operation):
-    def __init__(self, **kwargs):
+    def __init__(self, database_srv, **kwargs):
         Operation.__init__(self, **kwargs)
+        self.database_srv = database_srv
         self.arena = self.required_data_by_key(kwargs, "arena", str)
 
-    def _do_run(self, database, session):
-        asdb = database.dbpool().arena_segment.dbhandle()
+    def _do_run(self):
+        asdb = self.database_srv.dbpool().arena_segment.dbhandle()
         return bdb_helpers.get_all(asdb, self.arena)
 
 

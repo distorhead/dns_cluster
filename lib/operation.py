@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from lib.common import required_key, required_type
+from lib.common import retrieve_key, cast_type
 
 
 class OperationError(Exception): pass
@@ -13,13 +13,13 @@ class Operation(object):
 
     @classmethod
     def required_data_by_key(cls, operation_data, key, type=None):
-        value = required_key(operation_data, key,
+        value = retrieve_key(operation_data, key,
                              failure_func=cls.construction_failure,
                              failure_msg="wrong operation data: {} required".format(
                                           key))
 
         if not type is None:
-            value = required_type(value, type,
+            value = cast_type(value, type,
                                   failure_func=cls.construction_failure,
                                   failure_msg="wrong operation data: bad value "
                                               "'{}'".format(value))
@@ -28,14 +28,17 @@ class Operation(object):
 
     @classmethod
     def optional_data_by_key(cls, operation_data, key, type, default):
-        typecheck = True
+        do_typecast = [True]
         def not_found(_):
-            typecheck = False
+            do_typecast[0] = False
 
-        value = required_key(operation_data, key,
+        value = retrieve_key(operation_data, key,
                              failure_func=not_found,
                              default=default)
-        return required_type(value, type, default=default)
+
+        if do_typecast[0]:
+            value = cast_type(value, type, default=default)
+        return value
 
 
     def __init__(self, **kwargs):

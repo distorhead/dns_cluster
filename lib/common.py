@@ -53,7 +53,7 @@ def reorder(s):
     return res
 
 
-def required_key(dct, key, **kwargs):
+def retrieve_key(dct, key, **kwargs):
     failure_func = kwargs.get("failure_func", None)
     failure_msg = kwargs.get("failure_msg", "")
     default = kwargs.get("default", None)
@@ -66,7 +66,7 @@ def required_key(dct, key, **kwargs):
     return dct[key]
 
 
-def required_type(value, type, **kwargs):
+def cast_type(value, type, **kwargs):
     failure_func = kwargs.get("failure_func", None)
     failure_msg = kwargs.get("failure_msg", None)
     default = kwargs.get("default", None)

@@ -3,7 +3,7 @@
 from bson import BSON
 
 from lib import database
-from lib.common import required_key, required_type
+from lib.common import retrieve_key, cast_type
 from lib.service import ServiceProvider
 from lib import bdb_helpers
 
@@ -37,17 +37,26 @@ class Action(object):
 
     @classmethod
     def required_data_by_key(cls, action_data, key, type):
-        value = required_key(action_data, key, failure_func=cls.construction_failure,
+        value = retrieve_key(action_data, key, failure_func=cls.construction_failure,
                              failure_msg="wrong action data: {0} required".format(key))
 
-        return required_type(value, type, failure_func=cls.construction_failure,
+        return cast_type(value, type, failure_func=cls.construction_failure,
                              failure_msg="wrong action data: bad value "
                                          "'{0}'".format(value))
 
     @classmethod
     def optional_data_by_key(cls, action_data, key, type, default):
-        value = required_key(action_data, key, default=default)
-        return required_type(value, type, default=default)
+        do_typecast = [True]
+        def not_found(_):
+            do_typecast[0] = False
+
+        value = retrieve_key(operation_data, key,
+                             failure_func=not_found,
+                             default=default)
+
+        if do_typecast[0]:
+            value = cast_type(value, type, default=default)
+        return value
 
     @classmethod
     def unserialize(cls, string):
@@ -56,7 +65,7 @@ class Action(object):
         name = cls.required_data_by_key(action_data, "name", str)
         data = cls.required_data_by_key(action_data, "data", dict)
 
-        act_cls = required_key(cls.registered_actions, name,
+        act_cls = retrieve_key(cls.registered_actions, name,
                                failure_func=cls.construction_failure,
                                failure_msg="unknown action '{0}'".format(name))
 

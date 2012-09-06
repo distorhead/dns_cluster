@@ -8,13 +8,10 @@ __all__ = ["GetArenasOp"]
 
 
 class GetArenasOp(Operation):
-    def __init__(self, database_srv, session_srv, **kwargs):
-        Operation.__init__(self, database_srv, session_srv, **kwargs)
-        self.database_srv = database_srv
-
     def _do_run(self):
-        adb = self.database_srv.dbpool().arena.dbhandle()
-        return bdb_helpers.keys(adb)
+        with self.database_srv.transaction() as txn:
+            adb = self.database_srv.dbpool().arena.dbhandle()
+            return bdb_helpers.keys(adb, txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

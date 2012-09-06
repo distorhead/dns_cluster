@@ -13,8 +13,9 @@ class GetSegmentsOp(Operation):
         self.arena = self.required_data_by_key(kwargs, "arena", str)
 
     def _do_run(self):
-        asdb = self.database_srv.dbpool().arena_segment.dbhandle()
-        return bdb_helpers.get_all(asdb, self.arena)
+        with self.database_srv.transaction() as txn:
+            asdb = self.database_srv.dbpool().arena_segment.dbhandle()
+            return bdb_helpers.get_all(asdb, self.arena, txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

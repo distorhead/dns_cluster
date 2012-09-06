@@ -16,50 +16,50 @@ class DelZone(Action, Dbstate):
 
     def __init__(self, **kwargs):
         super(DelZone, self).__init__(**kwargs)
-        self.arena = self.required_data_by_key(kwargs, "arena", str)
-        self.segment = self.required_data_by_key(kwargs, "segment", str)
         self.zone = self.required_data_by_key(kwargs, "zone", str)
 
     def _current_dbstate(self, database, txn):
-        return self.get_segment(self.arena, self.segment, database, txn)
+        zdb = database.dbpool().dns_zone.dbhandle()
+        arena_segment = zdb.get(reorder(self.zone), None, txn)
+        if arena_segment:
+            as_list = arena_segment.split(' ', 1)
+            if len(as_list) == 2:
+                arena, segment = as_list
+                return self.get_segment(arena, segment, database, txn)
+            else:
+                return None
+        else:
+            return None
 
     def _do_apply(self, database, txn):
-        adb = database.dbpool().arena.dbhandle()
-        asdb = database.dbpool().arena_segment.dbhandle()
         zdb = database.dbpool().dns_zone.dbhandle()
+        zddb = database.dbpool().dns_data.dbhandle()
         xdb = database.dbpool().dns_xfr.dbhandle()
-        zddb = database.dbpool().zone_dns_data.dbhandle()
         szdb = database.dbpool().segment_zone.dbhandle()
 
-        if not adb.exists(self.arena, txn):
-            raise ActionError(self._make_error_msg("arena doesn't exist"))
-
-        segments = bdb_helpers.get_all(asdb, self.arena, txn)
-        if not self.segment in segments:
-            raise ActionError(self._make_error_msg("segment doesn't exist"))
+        zone_rname = reorder(self.zone)
+        if not zdb.exists(zone_rname, txn):
+            raise ActionError(self._make_error_msg("zone doesn't exits"))
 
         if zddb.exists(self.zone, txn) or xdb.exists(self.zone, txn):
             raise ActionError(self._make_error_msg("zone contains records"))
 
-        zone_rname = reorder(self.zone)
-
-        if zdb.exists(zone_rname, txn):
-            zdb.delete(zone_rname, txn)
-        else:
-            raise ActionError(self._make_error_msg("zone doesn't exist"))
-
-        bdb_helpers.delete_pair(szdb, self.arena + ' ' + self.segment,
-                                self.zone, txn)
+        arena_segment = zdb.get(zone_rname, None, txn)
+        bdb_helpers.delete_pair(szdb, arena_segment, self.zone, txn)
+        zdb.delete(zone_rname, txn)
 
         self.del_zone(self.zone, database, txn)
-        self.update_segment(self.arena, self.segment, database, txn)
+
+        as_list = arena_segment.split(' ', 1)
+        if len(as_list) == 2:
+            arena, segment = as_list
+            self.update_segment(arena, segment, database, txn)
 
     def _make_error_msg(self, reason):
         return self.ERROR_MSG_TEMPLATE.format(self.desc(), reason=reason)
 
     def desc(self):
-        return "{{arena='{}', segment='{}', zone='{}'}}".format(
-                self.arena, self.segment, self.zone)
+        return "{{zone='{}'}}".format(self.zone)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

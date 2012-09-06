@@ -8,9 +8,8 @@ __all__ = ["GetZonesOp"]
 
 
 class GetZonesOp(Operation):
-    def __init__(self, database_srv, **kwargs):
-        Operation.__init__(self, **kwargs)
-        self.database_srv = database_srv
+    def __init__(self, database_srv, session_srv, **kwargs):
+        Operation.__init__(self, database_srv, session_srv, **kwargs)
         self.arena = self.required_data_by_key(kwargs, "arena", str)
         self.segment = self.optional_data_by_key(kwargs, "segment", str, None)
 
@@ -26,12 +25,12 @@ class GetZonesOp(Operation):
                 as_list = arena_segment.split(' ', 1)
                 if len(as_list) == 2:
                     arena, segment = as_list
-                    zone = {
-                        "arena": arena,
-                        "segment": segment,
-                        "zone": zone
-                    }
-                    res.append(zone)
+                    if arena == self.arena:
+                        zone = {
+                            "segment": segment,
+                            "zone": zone
+                        }
+                        res.append(zone)
 
             return res
 

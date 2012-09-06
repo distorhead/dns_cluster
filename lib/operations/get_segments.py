@@ -8,9 +8,8 @@ __all__ = ["GetSegmentsOp"]
 
 
 class GetSegmentsOp(Operation):
-    def __init__(self, database_srv, **kwargs):
-        Operation.__init__(self, **kwargs)
-        self.database_srv = database_srv
+    def __init__(self, database_srv, session_srv, **kwargs):
+        Operation.__init__(self, database_srv, session_srv, **kwargs)
         self.arena = self.required_data_by_key(kwargs, "arena", str)
 
     def _do_run(self):

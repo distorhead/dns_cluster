@@ -9,8 +9,8 @@ __all__ = ["DelSegmentOp"]
 
 
 class DelSegmentOp(SessionOperation):
-    def __init__(self, session_srv, **kwargs):
-        SessionOperation.__init__(self, session_srv, **kwargs)
+    def __init__(self, database_srv, session_srv, **kwargs):
+        SessionOperation.__init__(self, database_srv, session_srv, **kwargs)
         self._action = DelSegment(**kwargs)
 
     def _run_in_session(self, sessid):

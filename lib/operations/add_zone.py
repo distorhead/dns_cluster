@@ -9,8 +9,8 @@ __all__ = ["AddZoneOp"]
 
 
 class AddZoneOp(SessionOperation):
-    def __init__(self, session_srv, **kwargs):
-        SessionOperation.__init__(self, session_srv, **kwargs)
+    def __init__(self, database_srv, session_srv, **kwargs):
+        SessionOperation.__init__(self, database_srv, session_srv, **kwargs)
         self._action = AddZone(**kwargs)
 
     def _run_in_session(self, sessid):

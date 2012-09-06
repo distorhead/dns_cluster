@@ -41,7 +41,9 @@ class Operation(object):
         return value
 
 
-    def __init__(self, **kwargs):
+    def __init__(self, database_srv, session_srv, **kwargs):
+        self.database_srv = database_srv
+        self.session_srv = session_srv
         self._used = False
 
     def run(self):

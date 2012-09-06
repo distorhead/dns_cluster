@@ -8,8 +8,8 @@ __all__ = ["GetArenasOp"]
 
 
 class GetArenasOp(Operation):
-    def __init__(self, database_srv, **kwargs):
-        Operation.__init__(self, **kwargs)
+    def __init__(self, database_srv, session_srv, **kwargs):
+        Operation.__init__(self, database_srv, session_srv, **kwargs)
         self.database_srv = database_srv
 
     def _do_run(self):

@@ -50,7 +50,7 @@ class Action(object):
         def not_found(_):
             do_typecast[0] = False
 
-        value = retrieve_key(operation_data, key,
+        value = retrieve_key(action_data, key,
                              failure_func=not_found,
                              default=default)
 

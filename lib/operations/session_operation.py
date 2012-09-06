@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from lib.operation import Operation, OperationError
+from lib.operation import Operation
 
 
 class SessionOperation(Operation):
@@ -9,9 +9,8 @@ class SessionOperation(Operation):
     Subclasses should implement _run_in_session method.
     """
 
-    def __init__(self, session_srv, **kwargs):
-        Operation.__init__(self, **kwargs)
-        self.session_srv = session_srv
+    def __init__(self, database_srv, session_srv, **kwargs):
+        Operation.__init__(self, database_srv, session_srv, **kwargs)
         self.sessid = self.optional_data_by_key(kwargs, "sessid", int, None)
 
     def _do_run(self):

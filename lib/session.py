@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import functools
+
 from lib import database
 from lib import bdb_helpers
 from lib.service import ServiceProvider
@@ -89,6 +91,19 @@ class manager(object):
         }
     }
 
+    def transactional(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            txn = kwargs.get("txn", None)
+            if txn is None:
+                with self._database.transaction() as txn:
+                    kwargs["txn"] = txn
+                    return func(self, *args, **kwargs)
+            else:
+                return func(self, *args, **kwargs)
+
+        return wrapper
+
     def __init__(self, sp, *args, **kwargs):
         self._database = sp.get("database")
         self._action_journal = sp.get("action_journal")
@@ -103,54 +118,59 @@ class manager(object):
     def dbpool(self):
         return self._dbpool
 
-    def begin_session(self):
+    @transactional
+    def begin_session(self, **kwargs):
         """
         Get new session id.
         """
 
-        sessid = None
+        txn = kwargs["txn"]
+
         sdb = self.dbpool().session.dbhandle()
-        with self._database.transaction() as txn:
-            seq = self.dbpool().session.sequence(txn=txn)
-            id = str(seq.get(1, txn))
-            sdb.put(id, '', txn)
-            seq.close()
-            sessid = int(id)
+        seq = self.dbpool().session.sequence(txn=txn)
+        id = str(seq.get(1, txn))
+        sdb.put(id, '', txn)
+        seq.close()
+        sessid = int(id)
 
         self._set_session_watchdog(sessid)
         return sessid
 
-    def commit_session(self, sessid):
-        with self._database.transaction() as txn:
-            if self._is_session_exists(sessid, txn):
-                self._delete_session(sessid, txn)
-                actions = self._retrieve_session_actions(sessid, txn)
-                actions.sort()
-                for actid in actions:
-                    data = self._retrieve_action_record(actid, txn)
-                    if data:
-                        act_dump = data.split(' ')[0]
-                        self._action_journal.record_action_dump(act_dump, txn)
-            else:
-                raise SessionError("Session '{}' doesn't exist".format(sessid))
+    @transactional
+    def commit_session(self, sessid, **kwargs):
+        txn = kwargs["txn"]
+
+        if self._is_session_exists(sessid, txn):
+            self._delete_session(sessid, txn)
+            actions = self._retrieve_session_actions(sessid, txn)
+            actions.sort()
+            for actid in actions:
+                data = self._retrieve_action_record(actid, txn)
+                if data:
+                    act_dump = data.split(' ')[0]
+                    self._action_journal.record_action_dump(act_dump, txn)
+        else:
+            raise SessionError("Session '{}' doesn't exist".format(sessid))
 
         self._unset_session_watchdog(sessid)
 
-    def rollback_session(self, sessid):
-        with self._database.transaction() as txn:
-            if self._is_session_exists(sessid, txn):
-                self._delete_session(sessid, txn)
-                actions = self._retrieve_session_actions(sessid, txn)
-                actions.sort()
-                actions.reverse()
-                for actid in actions:
-                    data = self._retrieve_action_record(actid, txn)
-                    if data:
-                        undo_act_dump = data.split(' ')[1]
-                        act = Action.unserialize(undo_act_dump)
-                        act.apply(self._database, txn)
-            else:
-                raise SessionError("Session '{}' doesn't exist".format(sessid))
+    @transactional
+    def rollback_session(self, sessid, **kwargs):
+        txn = kwargs["txn"]
+
+        if self._is_session_exists(sessid, txn):
+            self._delete_session(sessid, txn)
+            actions = self._retrieve_session_actions(sessid, txn)
+            actions.sort()
+            actions.reverse()
+            for actid in actions:
+                data = self._retrieve_action_record(actid, txn)
+                if data:
+                    undo_act_dump = data.split(' ')[1]
+                    act = Action.unserialize(undo_act_dump)
+                    act.apply(self._database, txn)
+        else:
+            raise SessionError("Session '{}' doesn't exist".format(sessid))
 
         self._unset_session_watchdog(sessid)
 
@@ -159,14 +179,16 @@ class manager(object):
             self._unset_session_watchdog(sessid)
             self._set_session_watchdog(sessid)
 
-    def apply_action(self, sessid, action, undo_action):
-        with self._database.transaction() as txn:
-            if self._is_session_exists(sessid, txn):
-                action.apply(self._database, txn)
-                actid = self._record_action(action, undo_action, txn)
-                self._link_session_action(sessid, actid, txn)
-            else:
-                raise SessionError("Session '{}' doesn't exist".format(sessid))
+    @transactional
+    def apply_action(self, sessid, action, undo_action, **kwargs):
+        txn = kwargs["txn"]
+
+        if self._is_session_exists(sessid, txn):
+            action.apply(self._database, txn)
+            actid = self._record_action(action, undo_action, txn)
+            self._link_session_action(sessid, actid, txn)
+        else:
+            raise SessionError("Session '{}' doesn't exist".format(sessid))
 
 
     def _is_session_exists(self, sessid, txn):

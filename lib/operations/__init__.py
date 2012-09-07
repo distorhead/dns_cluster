@@ -11,3 +11,5 @@ from get_segments import *
 from add_zone import *
 from del_zone import *
 from get_zones import *
+from add_record import *
+from del_record import *

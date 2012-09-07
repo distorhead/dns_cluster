@@ -31,7 +31,7 @@ class AddRecord_MX(RecordAction):
             return False
 
     def desc(self):
-        rec = "{{type='MX', zone='{}', domain='{}', priority='{}', ttl='{}'}}".format(
+        return "{{type='MX', zone='{}', domain='{}', priority='{}', ttl='{}'}}".format(
                 self.zone, self.domain, self.priority, self.ttl)
 
 

@@ -147,7 +147,15 @@ class manager(object):
             for actid in actions:
                 data = self._retrieve_action_record(actid, txn)
                 if data:
-                    act_dump = data.split(' ')[0]
+                    try:
+                        data_list = data.split(' ', 1)
+                        dump_len = int(data_list[0])
+                        begin_pos = len(data_list[0]) + 1
+                        act_dump = data[begin_pos:begin_pos + dump_len]
+
+                    except:
+                        continue
+
                     self._action_journal.record_action_dump(act_dump, txn)
         else:
             raise SessionError("Session '{}' doesn't exist".format(sessid))
@@ -166,7 +174,15 @@ class manager(object):
             for actid in actions:
                 data = self._retrieve_action_record(actid, txn)
                 if data:
-                    undo_act_dump = data.split(' ')[1]
+                    try:
+                        data_list = data.split(' ', 1)
+                        data = data[len(data_list[0]) + 2 + int(data_list[0]):]
+                        data_list = data.split(' ', 1)
+                        undo_act_dump = data[len(data_list[0]) + 1:]
+
+                    except:
+                        continue
+
                     act = Action.unserialize(undo_act_dump)
                     act.apply(self._database, txn)
         else:
@@ -213,7 +229,8 @@ class manager(object):
     def _record_action(self, action, undo_action, txn):
         act_dump = action.serialize()
         undo_act_dump = undo_action.serialize()
-        data = act_dump + ' ' + undo_act_dump
+        data = (str(len(act_dump)) + ' ' + act_dump + ' ' +
+                str(len(undo_act_dump)) + ' ' + undo_act_dump)
 
         seq = self.dbpool().action_journal.sequence(txn=txn)
         newid = seq.get(1, txn)

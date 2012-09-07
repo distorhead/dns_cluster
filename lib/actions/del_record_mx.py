@@ -25,7 +25,7 @@ class DelRecord_MX(RecordAction):
             return False
 
     def desc(self):
-        rec = "{{type='MX', zone='{}', domain='{}'}}".format(
+        return "{{type='MX', zone='{}', domain='{}'}}".format(
                 self.zone, self.domain)
 
 

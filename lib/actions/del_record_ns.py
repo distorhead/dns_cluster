@@ -9,7 +9,7 @@ __all__ = ["DelRecord_NS"]
 
 @Action.register_action
 class DelRecord_NS(RecordAction):
-    ERROR_MSG_TEMPLATE = "unable to delete NS record {rec}: {reason}"
+    ERROR_MSG_TEMPLATE = "unable to delete NS record {}: {reason}"
 
     def __init__(self, **kwargs):
         super(DelRecord_NS, self).__init__(**kwargs)

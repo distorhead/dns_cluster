@@ -13,3 +13,4 @@ from del_zone import *
 from get_zones import *
 from add_record import *
 from del_record import *
+from get_records import *

@@ -42,6 +42,21 @@ class RecordOperation(object):
 
         return AddRecord_A(zone=zone, host=host, ip=ip, ttl=ttl)
 
+    def make_spec_a(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, host = zd_list
+            return {
+                'type': 'A',
+                'zone': zone,
+                'host': host,
+                'ip': rec_list[4],
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
+
 
     def add_to_del_cname(self, database_srv, act, txn):
         return DelRecord_CNAME(zone=act.zone, host=act.host, domain=act.domain)
@@ -64,6 +79,21 @@ class RecordOperation(object):
 
         return AddRecord_CNAME(zone=zone, host=host, domain=domain, ttl=ttl)
 
+    def make_spec_cname(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, host = zd_list
+            return {
+                'type': 'CNAME',
+                'zone': zone,
+                'host': host,
+                'domain': rec_list[4],
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
+
 
     def add_to_del_dname(self, database_srv, act, txn):
         return DelRecord_DNAME(zone=act.zone, zone_dst=act.zone_dst)
@@ -84,6 +114,20 @@ class RecordOperation(object):
             ttl = rec_list[2]
 
         return AddRecord_DNAME(zone=zone, zone_dst=zone_dst, ttl=ttl)
+
+    def make_spec_dname(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, _ = zd_list
+            return {
+                'type': 'DNAME',
+                'zone': zone,
+                'zone_dst': rec_list[4],
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
 
 
     def add_to_del_mx(self, database_srv, act, txn):
@@ -108,6 +152,21 @@ class RecordOperation(object):
 
         return AddRecord_MX(zone=zone, domain=domain, priority=priority, ttl=ttl)
 
+    def make_spec_mx(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, _ = zd_list
+            return {
+                'type': 'MX',
+                'zone': zone,
+                'priority': int(rec_list[4]),
+                'domain': rec_list[5],
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
+
 
     def add_to_del_ns(self, database_srv, act, txn):
         return DelRecord_NS(zone=act.zone, domain=act.domain)
@@ -128,6 +187,20 @@ class RecordOperation(object):
             ttl = rec_list[2]
 
         return AddRecord_NS(zone=zone, domain=domain, ttl=ttl)
+
+    def make_spec_ns(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, _ = zd_list
+            return {
+                'type': 'NS',
+                'zone': zone,
+                'domain': rec_list[4],
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
 
 
     def add_to_del_ptr(self, database_srv, act, txn):
@@ -150,6 +223,21 @@ class RecordOperation(object):
             ttl = rec_list[2]
 
         return AddRecord_PTR(zone=zone, host=host, domain=domain, ttl=ttl)
+
+    def make_spec_ptr(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, host = zd_list
+            return {
+                'type': 'PTR',
+                'zone': zone,
+                'host': host,
+                'domain': rec_list[4],
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
 
 
     def add_to_del_soa(self, database_srv, act, txn):
@@ -186,6 +274,26 @@ class RecordOperation(object):
                              retry=retry,
                              expire=expire,
                              minimum=minimum)
+
+    def make_spec_soa(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, _ = zd_list
+            return {
+                'type': 'SOA',
+                'zone': zone,
+                'primary_ns': rec_list[4],
+                'resp_person': rec_list[5],
+                'serial': int(rec_list[6]),
+                'refresh': int(rec_list[7]),
+                'retry': int(rec_list[8]),
+                'expire': int(rec_list[9]),
+                'minimum': int(rec_list[10]),
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
 
 
     def add_to_del_srv(self, database_srv, act, txn):
@@ -225,6 +333,24 @@ class RecordOperation(object):
                              weight=weight,
                              ttl=ttl)
 
+    def make_spec_srv(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, service = zd_list
+            return {
+                'type': 'SRV',
+                'zone': zone,
+                'service': service,
+                'port': int(rec_list[6]),
+                'domain': rec_list[7],
+                'priority': int(rec_list[4]),
+                'weight': int(rec_list[5]),
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
+
 
     def add_to_del_txt(self, database_srv, act, txn):
         return DelRecord_TXT(zone=act.zone, text=act.text)
@@ -246,67 +372,94 @@ class RecordOperation(object):
 
         return AddRecord_TXT(zone=zone, text=text, ttl=ttl)
 
+    def make_spec_txt(self, zone_data_key, rec_list):
+        try:
+            zd_list = zone_data_key.split(' ', 1)
+            zone, _ = zd_list
+            return {
+                'type': 'TXT',
+                'zone': zone,
+                'text': rec_list[4][1:-1],
+                'ttl': int(rec_list[2])
+            }
+
+        except:
+            return None
+
     ACTION_BY_REC_TYPE = {
         'a': {
             'add': AddRecord_A,
             'del': DelRecord_A,
             'add_to_del': add_to_del_a,
-            'del_to_add': del_to_add_a
+            'del_to_add': del_to_add_a,
+            'make_spec': make_spec_a
         },
         'cname': {
             'add': AddRecord_CNAME,
             'del': DelRecord_CNAME,
             'add_to_del': add_to_del_cname,
-            'del_to_add': del_to_add_cname
+            'del_to_add': del_to_add_cname,
+            'make_spec': make_spec_cname
         },
         'dname': {
             'add': AddRecord_DNAME,
             'del': DelRecord_DNAME,
             'add_to_del': add_to_del_dname,
-            'del_to_add': del_to_add_dname
+            'del_to_add': del_to_add_dname,
+            'make_spec': make_spec_dname
         },
         'mx': {
             'add': AddRecord_MX,
             'del': DelRecord_MX,
             'add_to_del': add_to_del_mx,
-            'del_to_add': del_to_add_mx
+            'del_to_add': del_to_add_mx,
+            'make_spec': make_spec_mx
         },
         'ns': {
             'add': AddRecord_NS,
             'del': DelRecord_NS,
             'add_to_del': add_to_del_ns,
-            'del_to_add': del_to_add_ns
+            'del_to_add': del_to_add_ns,
+            'make_spec': make_spec_ns
         },
         'ptr': {
             'add': AddRecord_PTR,
             'del': DelRecord_PTR,
             'add_to_del': add_to_del_ptr,
-            'del_to_add': del_to_add_ptr
+            'del_to_add': del_to_add_ptr,
+            'make_spec': make_spec_ptr
         },
         'soa': {
             'add': AddRecord_SOA,
             'del': DelRecord_SOA,
             'add_to_del': add_to_del_soa,
-            'del_to_add': del_to_add_soa
+            'del_to_add': del_to_add_soa,
+            'make_spec': make_spec_soa
         },
         'srv': {
             'add': AddRecord_SRV,
             'del': DelRecord_SRV,
             'add_to_del': add_to_del_srv,
-            'del_to_add': del_to_add_srv
+            'del_to_add': del_to_add_srv,
+            'make_spec': make_spec_srv
         },
         'txt': {
             'add': AddRecord_TXT,
             'del': DelRecord_TXT,
             'add_to_del': add_to_del_txt,
-            'del_to_add': del_to_add_txt
+            'del_to_add': del_to_add_txt,
+            'make_spec': make_spec_txt
         }
     }
 
-    def _get_rec_map(self, rec_type):
+    def _get_rec_map(self, rec_type, raise_error=True):
         rec_type = rec_type.lower()
         if not self.ACTION_BY_REC_TYPE.has_key(rec_type):
-            raise RecordOperationError("Unknown record type '{}'".format(rec_type))
+            if raise_error:
+                raise RecordOperationError("Unknown record type '{}'".format(
+                                           rec_type))
+            else:
+                return None
         else:
             return self.ACTION_BY_REC_TYPE[rec_type]
 
@@ -327,6 +480,18 @@ class RecordOperation(object):
         rec_map = self._get_rec_map(rec_type)
         converter = rec_map['del_to_add']
         return converter(self, database_srv, act, txn)
+
+    def make_rec_spec(self, zone_data_key, rec):
+        rec_list = split(rec)
+        if len(rec_list) > 3:
+            rec_map = self._get_rec_map(rec_list[3])
+            if not rec_map is None:
+                spec_maker = rec_map['make_spec']
+                return spec_maker(self, zone_data_key, rec_list)
+            else:
+                return None
+        else:
+            return None
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

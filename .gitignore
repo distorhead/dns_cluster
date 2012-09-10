@@ -10,3 +10,4 @@ tests/databases/gamma/*
 !tests/databases/gamma/.holder
 *.log
 *.log.[0-9]
+dropin.cache

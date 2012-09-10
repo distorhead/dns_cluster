@@ -15,7 +15,7 @@ class Peer(object):
     @staticmethod
     def make_service(interface, port, connectionMade):
         endpoint_spec = "tcp:interface={interface}:port={port}".format(
-                        interface=interface, port=port)
+                         interface=interface, port=port)
         f = SyncServerFactory()
         f.connectionMade = connectionMade
         twisted_service = strports.service(endpoint_spec, f)

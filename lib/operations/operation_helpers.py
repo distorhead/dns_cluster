@@ -6,10 +6,7 @@ from lib.common import split, reorder
 from lib import bdb_helpers
 
 
-class RecordOperationError(Exception): pass
-
-
-class RecordOperation(object):
+class OperationHelpersMixin(object):
     def _retrieve_record(self, database_srv, zone, host, pred, txn):
         ddb = database_srv.dbpool().dns_data.dbhandle()
         recs = bdb_helpers.get_all(ddb, zone + ' ' + host, txn)
@@ -456,8 +453,8 @@ class RecordOperation(object):
         rec_type = rec_type.lower()
         if not self.ACTION_BY_REC_TYPE.has_key(rec_type):
             if raise_error:
-                raise RecordOperationError("Unknown record type '{}'".format(
-                                           rec_type))
+                raise OperationError("Unknown record type '{}'".format(
+                                     rec_type))
             else:
                 return None
         else:

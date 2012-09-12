@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from lib.operations.record_operation import RecordOperation
+from lib.operations.operation_helpers import OperationHelpersMixin
 from lib.operations.session_operation import SessionOperation
 from lib.operation import OperationError
 
@@ -8,7 +8,7 @@ from lib.operation import OperationError
 __all__ = ["AddRecordOp"]
 
 
-class AddRecordOp(SessionOperation, RecordOperation):
+class AddRecordOp(SessionOperation, OperationHelpersMixin):
     def __init__(self, **kwargs):
         SessionOperation.__init__(self, **kwargs)
         rec_spec = self.required_data_by_key(kwargs, 'rec_spec', dict)

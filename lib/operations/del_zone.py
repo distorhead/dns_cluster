@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from lib.operations.session_operation import SessionOperation
-from lib.operations.record_operation import RecordOperation
+from lib.operations.operation_helpers import OperationHelpersMixin
 from lib.actions.add_zone import AddZone
 from lib.actions.del_zone import DelZone
 from lib.common import reorder
@@ -10,7 +10,7 @@ from lib.common import reorder
 __all__ = ["DelZoneOp"]
 
 
-class DelZoneOp(SessionOperation, RecordOperation):
+class DelZoneOp(SessionOperation, OperationHelpersMixin):
     def __init__(self, **kwargs):
         SessionOperation.__init__(self, **kwargs)
         self._action = DelZone(**kwargs)

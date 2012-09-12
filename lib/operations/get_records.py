@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from lib.operations.session_operation import SessionOperation
-from lib.operations.record_operation import RecordOperation
+from lib.operations.operation_helpers import OperationHelpersMixin
 from lib.operation import OperationError
 from lib.common import split
 from lib import bdb_helpers
@@ -10,7 +10,7 @@ from lib import bdb_helpers
 __all__ = ["GetRecordsOp"]
 
 
-class GetRecordsOp(SessionOperation, RecordOperation):
+class GetRecordsOp(SessionOperation, OperationHelpersMixin):
     def __init__(self, **kwargs):
         SessionOperation.__init__(self, **kwargs)
         self.zone = self.required_data_by_key(kwargs, 'zone', str)

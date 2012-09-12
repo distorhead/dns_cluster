@@ -2,7 +2,6 @@
 
 from lib.operation import OperationError
 from lib.operations.session_operation import SessionOperation
-from lib.operations.record_operation import RecordOperation
 from lib.actions.add_zone import AddZone
 from lib.actions.del_zone import DelZone
 

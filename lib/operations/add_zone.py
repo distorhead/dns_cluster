@@ -11,33 +11,36 @@ __all__ = ["AddZoneOp"]
 
 
 class AddZoneOp(SessionOperation):
-    def __init__(self, database_srv, session_srv, **kwargs):
-        SessionOperation.__init__(self, database_srv, session_srv, **kwargs)
+    def __init__(self, **kwargs):
+        SessionOperation.__init__(self, **kwargs)
         self._action = AddZone(**kwargs)
-        self._records = kwargs.get("initial_records", [])
+        self._records = kwargs.get('initial_records', [])
 
-    def _run_in_session(self, sessid):
-        undo_action = DelZone(arena=self._action.arena,
-                              segment=self._action.segment,
-                              zone=self._action.zone)
-        self.session_srv.apply_action(sessid, self._action, undo_action)
-
-        record_actions = []
+        # only for validation
         for rec_spec in self._records:
-            rec_type = rec_spec.get('type', None)
-            if rec_type is None:
-                raise OperationError("Record type doesn't specified")
+            self.required_data_by_key(rec_spec, 'type', str)
 
-            act_cls = RecordOperation.ACTION_BY_REC_TYPE.get(rec_type.lower(), None)
-            if act_cls is None:
-                raise OperationError("Unknown record type '{}'".format(rec_type))
+    def _run_in_session(self, service_provider, sessid, **kwargs):
+        database_srv = service_provider.get('database')
+        session_srv = service_provider.get('session')
+        lock_srv = service_provider.get('lock')
 
-            assert len(act_cls) == 2, "Wrong record type => actions map"
+        resource = lock_srv.RESOURCE_DELIMITER.join(
+                       [self._action.arena, self._action.segment])
+        lock_srv.acquire(resource, sessid)
 
-            rec_spec['zone'] = self._action.zone
-            act_do = act_cls[0](**rec_spec)
-            act_undo = act_cls[1](**rec_spec)
-            self.session_srv.apply_action(sessid, act_do, act_undo)
+        with database_srv.transaction() as txn:
+            undo_action = DelZone(arena=self._action.arena,
+                                  segment=self._action.segment,
+                                  zone=self._action.zone)
+            session_srv.apply_action(sessid, self._action, undo_action, txn=txn)
+
+            record_actions = []
+            for rec_spec in self._records:
+                rec_type = rec_spec.get['type']
+                act_do = self.make_add_record(rec_type, rec_spec)
+                act_undo = self.make_del_record(rec_type, rec_spec)
+                session_srv.apply_action(sessid, act_do, act_undo, txn=txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

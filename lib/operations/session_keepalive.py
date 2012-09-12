@@ -9,7 +9,7 @@ __all__ = ["SessionKeepaliveOp"]
 class SessionKeepaliveOp(Operation):
     def __init__(self, database_srv, session_srv, **kwargs):
         Operation.__init__(self, database_srv, session_srv, **kwargs)
-        self.sessid = self.required_data_by_key(kwargs, "sessid", int)
+        self.sessid = self.required_data_by_key(kwargs, 'sessid', int)
 
     def _do_run(self):
         self.session_srv.keepalive_session(self.sessid)

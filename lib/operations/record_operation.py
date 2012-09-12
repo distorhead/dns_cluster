@@ -2,7 +2,7 @@
 
 from lib.actions import *
 from lib.actions.record import RecordAction
-from lib.common import split
+from lib.common import split, reorder
 from lib import bdb_helpers
 
 
@@ -492,6 +492,16 @@ class RecordOperation(object):
                 return None
         else:
             return None
+
+    def arena_segment_by_zone(self, database_srv, zone, txn):
+        zdb = database_srv.dbpool().dns_zone.dbhandle()
+        arena_segment = zdb.get(reorder(zone), None, txn)
+        if not arena_segment is None:
+            as_list = arena_segment.split(' ', 1)
+            if len(as_list) == 2:
+                return (as_list[0], as_list[1])
+
+        return None
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

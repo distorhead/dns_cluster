@@ -7,6 +7,11 @@ class OperationError(Exception): pass
 
 
 class Operation(object):
+    """
+    Class represent a single user API operation.
+    Subclasses must implement _do_run method, that performs actual operation.
+    """
+
     @classmethod
     def construction_failure(cls, msg):
         raise OperationError("Unable to construct operation: " + str(msg))
@@ -41,19 +46,18 @@ class Operation(object):
         return value
 
 
-    def __init__(self, database_srv, session_srv, **kwargs):
-        self.database_srv = database_srv
-        self.session_srv = session_srv
+    def __init__(self, **kwargs):
         self._used = False
 
-    def run(self):
+    def run(self, service_provider, **kwargs):
         if self._used:
             raise OperationError("Operation object must not be used repeatedly")
         else:
             self._used = True
-            return self._do_run()
+            res = self._do_run(service_provider, **kwargs)
+            return res
 
-    def _do_run(self):
+    def _do_run(self, service_provider, **kwargs):
         assert 0, "Operation _do_run method is not implemented"
 
 

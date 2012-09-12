@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import functools
-
 from lib import database
 from lib import bdb_helpers
 from lib.service import ServiceProvider
@@ -55,11 +53,13 @@ class Session(object):
         self._check_not_used()
         self._check_began()
         self._session_manager.commit_session(self.sessid)
+        self._used = True
 
     def rollback(self):
         self._check_not_used()
         self._check_began()
         self._session_manager.rollback_session(self.sessid)
+        self._used = True
 
 
 @ServiceProvider.register("session", deps=["database", "action_journal"])
@@ -91,22 +91,9 @@ class manager(object):
         }
     }
 
-    def transactional(func):
-        @functools.wraps(func)
-        def wrapper(self, *args, **kwargs):
-            txn = kwargs.get("txn", None)
-            if txn is None:
-                with self._database.transaction() as txn:
-                    kwargs["txn"] = txn
-                    return func(self, *args, **kwargs)
-            else:
-                return func(self, *args, **kwargs)
-
-        return wrapper
-
     def __init__(self, sp, *args, **kwargs):
-        self._database = sp.get("database")
-        self._action_journal = sp.get("action_journal")
+        self._database = sp.get('database')
+        self._action_journal = sp.get('action_journal')
         self._dbpool = database.DatabasePool(self.JOURNAL_DATABASES,
                                              self._database.dbenv(),
                                              self._database.dbfile())
@@ -118,7 +105,7 @@ class manager(object):
     def dbpool(self):
         return self._dbpool
 
-    @transactional
+    @database.transactional(database_srv_attr='_database')
     def begin_session(self, **kwargs):
         """
         Get new session id.
@@ -136,7 +123,7 @@ class manager(object):
         self._set_session_watchdog(sessid)
         return sessid
 
-    @transactional
+    @database.transactional(database_srv_attr='_database')
     def commit_session(self, sessid, **kwargs):
         txn = kwargs["txn"]
 
@@ -162,7 +149,7 @@ class manager(object):
 
         self._unset_session_watchdog(sessid)
 
-    @transactional
+    @database.transactional(database_srv_attr='_database')
     def rollback_session(self, sessid, **kwargs):
         txn = kwargs["txn"]
 
@@ -195,7 +182,7 @@ class manager(object):
             self._unset_session_watchdog(sessid)
             self._set_session_watchdog(sessid)
 
-    @transactional
+    @database.transactional(database_srv_attr='_database')
     def apply_action(self, sessid, action, undo_action, **kwargs):
         txn = kwargs["txn"]
 
@@ -205,6 +192,11 @@ class manager(object):
             self._link_session_action(sessid, actid, txn)
         else:
             raise SessionError("Session '{}' doesn't exist".format(sessid))
+
+    @database.transactional(database_srv_attr='_database')
+    def is_valid_session(self, sessid, **kwargs):
+        txn = kwargs['txn']
+        return self._is_session_exists(sessid, txn)
 
 
     def _is_session_exists(self, sessid, txn):

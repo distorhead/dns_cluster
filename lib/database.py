@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import atexit
+import functools
 
 from bsddb3 import db as bdb
 from twisted.python import log
@@ -8,7 +9,8 @@ from twisted.python import log
 from lib.service import ServiceProvider
 
 
-class TransactionError(Exception): pass
+class DatabaseError(Exception): pass
+class TransactionError(DatabaseError): pass
 
 
 class Transaction(object):
@@ -268,6 +270,35 @@ class manager(object):
 
     def transaction(self):
         return Transaction(self.dbenv())
+
+
+def transactional(**kwargs):
+    """
+    Function that returns decorator used to make some function transactional.
+    If user gives txn in kwargs, then function executes in this transaction.
+    Otherwise new transaction will be created.
+    Function func should be a method with signature: (self, *args, **kwargs).
+    Database service looked up as self attribute,
+        database_srv_attr is the name of that attribute.
+    """
+
+    database_srv_attr = kwargs.get('database_srv_attr', 'database_srv')
+
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(self, *args, **kwargs):
+            txn = kwargs.get('txn', None)
+            if txn is None:
+                database_srv = getattr(self, database_srv_attr)
+                with database_srv.transaction() as txn:
+                    kwargs['txn'] = txn
+                    return func(self, *args, **kwargs)
+            else:
+                return func(self, *args, **kwargs)
+
+        return wrapper
+
+    return decorator
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

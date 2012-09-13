@@ -68,7 +68,7 @@ class manager(object):
     Class used to control user api sessions.
     """
 
-    SESSION_TIMEOUT_SECONDS = 10
+    SESSION_TIMEOUT_SECONDS = 20
 
     JOURNAL_DATABASES = {
         "session": {
@@ -177,14 +177,20 @@ class manager(object):
 
         self._unset_session_watchdog(sessid)
 
-    def keepalive_session(self, sessid):
-        if self._watchdogs.has_key(sessid):
-            self._unset_session_watchdog(sessid)
-            self._set_session_watchdog(sessid)
+    @database.transactional(database_srv_attr='_database')
+    def keepalive_session(self, sessid, **kwargs):
+        txn = kwargs['txn']
+
+        if self._is_session_exists(sessid, txn):
+            if self._watchdogs.has_key(sessid):
+                self._unset_session_watchdog(sessid)
+                self._set_session_watchdog(sessid)
+        else:
+            raise SessionError("Session '{}' doesn't exist".format(sessid))
 
     @database.transactional(database_srv_attr='_database')
     def apply_action(self, sessid, action, undo_action, **kwargs):
-        txn = kwargs["txn"]
+        txn = kwargs['txn']
 
         if self._is_session_exists(sessid, txn):
             action.apply(self._database, txn)

@@ -50,6 +50,7 @@ class Operation(object):
         self._used = False
 
     def run(self, service_provider, **kwargs):
+        print 'Operation.run called'
         if self._used:
             raise OperationError("Operation object must not be used repeatedly")
         else:

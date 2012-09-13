@@ -1,20 +1,28 @@
 # -*- coding: utf-8 -*-
 
+from lib import database
+from lib import session
+from lib import lock
+from lib.network.user_api.resources.session import SessionResource
+
 from twisted.application import strports
 from twisted.web import server, resource
 
 
-class SimpleResource(resource.Resource):
-    isLeaf = True
-    def render_GET(self, request):
-        return "<html>Hello, world!</html>"
-
-
 class UserApiApp(object):
+    def __init__(self, interface, port, sp):
+        self._interface = interface
+        self._port = port
+        self._sp = sp
+
     def make_service(self):
         endpoint_spec = "tcp:interface={interface}:port={port}".format(
-                         interface='127.0.0.1', port=2100)
-        factory = server.Site(SimpleResource())
+                         interface=self._interface, port=self._port)
+
+        root = resource.Resource()
+        root.putChild('session', SessionResource(self._sp))
+        factory = server.Site(root)
+
         twisted_service = strports.service(endpoint_spec, factory)
         return twisted_service
 

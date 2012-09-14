@@ -4,6 +4,7 @@ from lib import database
 from lib import session
 from lib import lock
 from lib.network.user_api.resources.session import SessionResource
+from lib.network.user_api.resources.arenas import ArenasResource
 
 from twisted.application import strports
 from twisted.web import server, resource
@@ -21,6 +22,7 @@ class UserApiApp(object):
 
         root = resource.Resource()
         root.putChild('session', SessionResource(self._sp))
+        root.putChild('arenas', ArenasResource(self._sp))
         factory = server.Site(root)
 
         twisted_service = strports.service(endpoint_spec, factory)

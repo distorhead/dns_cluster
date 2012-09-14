@@ -5,7 +5,7 @@ from lib import bdb_helpers
 from lib.service import ServiceProvider
 from lib.action import Action
 
-from twisted.internet import reactor
+from twisted.internet import reactor, defer
 from twisted.python import log
 
 
@@ -17,9 +17,10 @@ class Session(object):
     Object-like interface to begin, commit and rollback session.
     """
 
-    def __init__(self, session_manager):
+    def __init__(self, session_manager, **kwargs):
         self._session_manager = session_manager
         self._used = False
+        self._kwargs = kwargs
 
     def _check_not_used(self):
         if self._used:
@@ -99,8 +100,8 @@ class manager(object):
                                              self._database.dbfile())
         self._watchdogs = {}
 
-    def session(self):
-        return Session(self)
+    def session(self, **kwargs):
+        return Session(self, **kwargs)
 
     def dbpool(self):
         return self._dbpool
@@ -111,7 +112,7 @@ class manager(object):
         Get new session id.
         """
 
-        txn = kwargs["txn"]
+        txn = kwargs['txn']
 
         sdb = self.dbpool().session.dbhandle()
         seq = self.dbpool().session.sequence(txn=txn)
@@ -120,7 +121,6 @@ class manager(object):
         seq.close()
         sessid = int(id)
 
-        self._set_session_watchdog(sessid)
         return sessid
 
     @database.transactional(database_srv_attr='_database')
@@ -204,6 +204,22 @@ class manager(object):
         txn = kwargs['txn']
         return self._is_session_exists(sessid, txn)
 
+    @database.transactional(database_srv_attr='_database')
+    def set_watchdog(self, sessid, **kwargs):
+        txn = kwargs['txn']
+        d = kwargs.get('deferred', None)
+        if self._is_session_exists(sessid, txn):
+            return self._set_session_watchdog(sessid, d)
+        else:
+            raise SessionError("Session '{}' doesn't exist".format(sessid))
+
+    @database.transactional(database_srv_attr='_database')
+    def unset_watchdog(self, sessid, **kwargs):
+        txn = kwargs['txn']
+        if self._is_session_exists(sessid, txn):
+            return self._unset_session_watchdog(sessid)
+        else:
+            raise SessionError("Session '{}' doesn't exist".format(sessid))
 
     def _is_session_exists(self, sessid, txn):
         sdb = self.dbpool().session.dbhandle()
@@ -213,16 +229,24 @@ class manager(object):
         sdb = self.dbpool().session.dbhandle()
         sdb.delete(str(sessid), txn)
 
-    def _set_session_watchdog(self, sessid):
-        callid = reactor.callLater(self.SESSION_TIMEOUT_SECONDS,
-                    lambda: self.rollback_session(sessid))
-        self._watchdogs[sessid] = callid
+    def _set_session_watchdog(self, sessid, d):
+        if d is None:
+            d = defer.Deferred()
+            d.addCallback(lambda x: self.rollback_session(sessid))
+
+        self._watchdogs[sessid] = self._make_watchdog_defer_call(d)
+        return d
 
     def _unset_session_watchdog(self, sessid):
         if self._watchdogs.has_key(sessid):
-            if self._watchdogs[sessid].active():
-                self._watchdogs[sessid].cancel()
+            callid, d = self._watchdogs[sessid]
             del self._watchdogs[sessid]
+            if callid.active():
+                callid.cancel()
+            return d
+
+    def _make_watchdog_defer_call(self, d):
+        return (reactor.callLater(self.SESSION_TIMEOUT_SECONDS, d.callback, None), d)
 
     def _record_action(self, action, undo_action, txn):
         act_dump = action.serialize()

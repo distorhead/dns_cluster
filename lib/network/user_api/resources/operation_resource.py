@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 
 import functools 
+import yaml
+import urllib
+
 from twisted.web import server, resource
 from twisted.internet import threads
 from twisted.python import log
@@ -9,6 +12,7 @@ from lib.operations import *
 from lib.operation import OperationError
 from lib.action import ActionError
 from lib.session import SessionError
+from lib.lock import LockError
 
 
 class RequestError(Exception): pass
@@ -34,31 +38,39 @@ class OperationResource(resource.Resource):
         return d
 
     def operation_failure(self, failure, request):
-        failure.trap(OperationError, ActionError, SessionError)
-        log.msg("Operation failure:", failure.getErrorMessage())
-        self.response(request, 400, failure.getErrorMessage())
+        failure.trap(OperationError, ActionError, SessionError, LockError)
+        log.msg("Operation failure:", failure)
+        self.response(request, 400, {'error': failure.getErrorMessage()})
 
     def unknown_failure(self, failure, request):
         log.err("An error occured:")
         log.err(failure)
         self.response(request, 500)
 
-    def response(self, request, code, message=""):
+    def response(self, request, code, answer=None):
         request.setResponseCode(code)
-        if message:
-            request.write(message)
+        request.setHeader('Content-Type', 'application/x-yaml')
+
+        if not answer is None:
+            resp = yaml.dump(answer)
+            request.write(resp)
+
         request.finish()
         return server.NOT_DONE_YET
+
+    def parse_content(self, content):
+        return yaml.load(content)
 
 
 def request_handler(func):
     @functools.wraps(func)
     def wrapper(self, request):
         try:
+            log.msg("Request:", request.args)
             return func(self, request)
 
         except (RequestError, OperationError, ActionError, SessionError) as e:
-            return self.response(request, 400, str(e))
+            return self.response(request, 400, {"error": str(e)})
 
         except Exception, e:
             log.err("An error occured:")

@@ -20,14 +20,22 @@ class SessionOperation(Operation):
 
         if self.sessid is None:
             with session_srv.session() as sessid:
-                res = self._run_in_session(service_provider, sessid, **kwargs)
-                lock_srv.release_session(sessid)
+                try:
+                    res = self._run_in_session(service_provider, sessid, **kwargs)
+                except:
+                    raise
+                finally:
+                    lock_srv.release_session(sessid)
+
                 return res
         else:
             if not session_srv.is_valid_session(self.sessid):
                 raise OperationError("Session '{}' is not valid".format(self.sessid))
 
-            return self._run_in_session(service_provider, self.sessid, **kwargs)
+            d = session_srv.unset_watchdog(self.sessid)
+            res = self._run_in_session(service_provider, self.sessid, **kwargs)
+            session_srv.set_watchdog(self.sessid, deferred=d)
+            return res
 
     def _run_in_session(self, service_provider, sessid, **kwargs):
         assert 0, "SessionOperation _run_in_session method is not implemented"

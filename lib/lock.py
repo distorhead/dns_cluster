@@ -289,6 +289,7 @@ class manager(object):
         sessid_str = str(sessid)
         resources = bdb_helpers.get_all(sldb, sessid_str, txn)
         for res in resources:
+            print "Releasing", res, "in session", sessid
             self._do_release(res, True, txn)
 
         bdb_helpers.delete(sldb, sessid_str, txn)

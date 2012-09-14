@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 
-import yaml
-
 from twisted.web import server, resource
 from twisted.python import log
 from lib.network.user_api.resources.operation_resource import *
@@ -12,8 +10,6 @@ class SessionResource(OperationResource):
 
     @request_handler
     def render_POST(self, request):
-        log.msg("Request:", request.args)
-
         cmd = self.required_field(request.args, 'cmd')
 
         if cmd[0] == 'begin':
@@ -54,8 +50,8 @@ class SessionResource(OperationResource):
         return SessionBeginOp()
 
     def _session_begin_done(self, res, request):
-        resp = yaml.dump(res)
-        log.msg("Session begin done:", resp)
+        log.msg("Session begin done:", res)
+        resp = {"sessid": res}
         self.response(request, 200, resp)
 
 
@@ -63,7 +59,7 @@ class SessionResource(OperationResource):
         sessid = self.required_field(request.args, 'sessid')[0]
         return SessionCommitOp(sessid=sessid)
 
-    def _session_commit_done(self, res, request):
+    def _session_commit_done(self, _, request):
         log.msg("Session commit done")
         self.response(request, 200)
 
@@ -72,7 +68,7 @@ class SessionResource(OperationResource):
         sessid = self.required_field(request.args, 'sessid')[0]
         return SessionRollbackOp(sessid=sessid)
 
-    def _session_rollback_done(self, res, request):
+    def _session_rollback_done(self, _, request):
         log.msg("Session rollback done")
         self.response(request, 200)
 
@@ -81,7 +77,7 @@ class SessionResource(OperationResource):
         sessid = self.required_field(request.args, 'sessid')[0]
         return SessionKeepaliveOp(sessid=sessid)
 
-    def _session_keepalive_done(self, res, request):
+    def _session_keepalive_done(self, _, request):
         log.msg("Session keepalive done")
         self.response(request, 200)
 

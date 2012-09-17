@@ -11,3 +11,4 @@ tests/databases/gamma/*
 *.log
 *.log.[0-9]
 dropin.cache
+.vimsession

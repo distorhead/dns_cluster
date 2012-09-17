@@ -15,35 +15,36 @@ class GetRecordsOp(SessionOperation, OperationHelpersMixin):
         SessionOperation.__init__(self, **kwargs)
         self.zone = self.required_data_by_key(kwargs, 'zone', str)
 
-    def _run_in_session(self, service_provider, sessid, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
 
+        self._check_access(service_provider, sessid, session_data, None, txn)
+
+        # retrieve arena and segment needed for lock resource
+        arena, segment = self.arena_segment_by_zone(database_srv, self.zone, txn)
+
+        # construct and lock resource
+        resource = lock_srv.RESOURCE_DELIMITER.join([arena, segment, self.zone])
+        lock_srv.acquire(resource, sessid)
+
         res = []
-        with database_srv.transaction() as txn:
-            as_pair = self.arena_segment_by_zone(database_srv, self.zone, txn)
-            if not as_pair is None:
-                arena, segment = as_pair
-                resource = lock_srv.RESOURCE_DELIMITER.join(
-                               [arena, segment, self.zone])
-                lock_srv.acquire(resource, sessid)
+        ddb = database_srv.dbpool().dns_data.dbhandle()
+        zddb = database_srv.dbpool().zone_dns_data.dbhandle()
 
-                ddb = database_srv.dbpool().dns_data.dbhandle()
-                zddb = database_srv.dbpool().zone_dns_data.dbhandle()
-
-                zdkeys = bdb_helpers.get_all(zddb, self.zone, txn)
-                for zdkey in zdkeys:
-                    recs = bdb_helpers.get_all(ddb, zdkey, txn)
-                    for rec in recs:
-                        rec_spec = self.make_rec_spec(zdkey, rec)
-                        if not rec_spec is None:
-                            res.append(rec_spec)
-
-            else:
-                raise OperationError("Unable to locate zone '{}'".format(
-                                        self._action.zone))
+        zdkeys = bdb_helpers.get_all(zddb, self.zone, txn)
+        for zdkey in zdkeys:
+            recs = bdb_helpers.get_all(ddb, zdkey, txn)
+            for rec in recs:
+                rec_spec = self.make_rec_spec(zdkey, rec)
+                if not rec_spec is None:
+                    res.append(rec_spec)
 
         return res
+
+    def _has_access(self, service_provider, sessid, session_data, _, txn):
+        database_srv = service_provider.get('database')
+        return self.has_access_to_zone(database_srv, self.zone, session_data, txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

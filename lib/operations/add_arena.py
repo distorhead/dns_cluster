@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from lib.operations.session_operation import SessionOperation
+from lib.operations.operation_helpers import OperationHelpersMixin
 from lib.actions.add_arena import AddArena
 from lib.actions.del_arena import DelArena
 
@@ -8,20 +9,27 @@ from lib.actions.del_arena import DelArena
 __all__ = ["AddArenaOp"]
 
 
-class AddArenaOp(SessionOperation):
+class AddArenaOp(SessionOperation, OperationHelpersMixin):
     def __init__(self, **kwargs):
         SessionOperation.__init__(self, **kwargs)
-        self._action = AddArena(**kwargs)
+        self._kwargs = kwargs
 
-    def _run_in_session(self, service_provider, sessid, **kwargs):
-        database_srv = service_provider.get('database')
+    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
 
-        lock_srv.acquire("_global", sessid)
-        with database_srv.transaction() as txn:
-            undo_action = DelArena(arena=self._action.arena)
-            session_srv.apply_action(sessid, self._action, undo_action, txn=txn)
+        # validation of arguments also goes here
+        do_action = AddArena(**self._kwargs)
+        undo_action = DelArena(arena=do_action.arena)
+
+        self._check_access(service_provider, sessid, session_data, do_action, txn)
+
+        lock_srv.acquire('_global', sessid)
+
+        session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
+
+    def _has_access(self, service_provider, sessid, session_data, action, txn):
+        return self.is_admin(session_data)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

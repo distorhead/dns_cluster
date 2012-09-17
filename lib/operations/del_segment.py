@@ -11,21 +11,28 @@ __all__ = ["DelSegmentOp"]
 class DelSegmentOp(SessionOperation):
     def __init__(self, **kwargs):
         SessionOperation.__init__(self, **kwargs)
-        self._action = DelSegment(**kwargs)
+        self._kwargs = kwargs
 
-    def _run_in_session(self, service_provider, sessid, **kwargs):
-        database_srv = service_provider.get('database')
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
 
+        # retrieve arena needed for action construction
+        if self.is_admin(session_data):
+            self.required_data_by_key(self._kwargs, 'arena', str)
+        else:
+            self._kwargs['arena'] = session_data['arena']
+
+        # parameters validation also goes here
+        do_action = DelSegment(**self._kwargs)
+        undo_action = AddSegment(arena=do_action.arena,
+                                 segment=do_action.segment)
+
         resource = lock_srv.RESOURCE_DELIMITER.join(
-                       [self._action.arena, self._action.segment])
+                       [do_action.arena, do_action.segment])
         lock_srv.acquire(resource, sessid)
 
-        with database_srv.transaction() as txn:
-            undo_action = AddSegment(arena=self._action.arena,
-                                     segment=self._action.segment)
-            session_srv.apply_action(sessid, self._action, undo_action, txn=txn)
+        session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

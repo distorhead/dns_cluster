@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import functools
+
 from lib import database
 from lib import bdb_helpers
 from lib.service import ServiceProvider
@@ -17,9 +19,10 @@ class Session(object):
     Object-like interface to begin, commit and rollback session.
     """
 
-    def __init__(self, session_manager, **kwargs):
+    def __init__(self, session_manager, *args, **kwargs):
         self._session_manager = session_manager
         self._used = False
+        self._args = args
         self._kwargs = kwargs
 
     def _check_not_used(self):
@@ -47,19 +50,19 @@ class Session(object):
 
     def begin(self):
         self._check_not_used()
-        self.sessid = self._session_manager.begin_session()
+        self.sessid = self._session_manager.begin_session(*self._args, **self._kwargs)
         return self.sessid
 
     def commit(self):
         self._check_not_used()
         self._check_began()
-        self._session_manager.commit_session(self.sessid)
+        self._session_manager.commit_session(self.sessid, **self._kwargs)
         self._used = True
 
     def rollback(self):
         self._check_not_used()
         self._check_began()
-        self._session_manager.rollback_session(self.sessid)
+        self._session_manager.rollback_session(self.sessid, **self._kwargs)
         self._used = True
 
 
@@ -100,14 +103,26 @@ class manager(object):
                                              self._database.dbfile())
         self._watchdogs = {}
 
-    def session(self, **kwargs):
-        return Session(self, **kwargs)
+    def session(self, *args, **kwargs):
+        return Session(self, *args, **kwargs)
 
     def dbpool(self):
         return self._dbpool
 
+
+    def validate_session(func):
+        @functools.wraps(func)
+        def wrapper(self, sessid, *args, **kwargs):
+            if self._is_session_exists(sessid, kwargs['txn']):
+                return func(self, sessid, *args, **kwargs)
+            else:
+                raise SessionError("Session '{}' doesn't exist".format(sessid))
+
+        return wrapper
+
+
     @database.transactional(database_srv_attr='_database')
-    def begin_session(self, **kwargs):
+    def begin_session(self, arena, **kwargs):
         """
         Get new session id.
         """
@@ -117,87 +132,83 @@ class manager(object):
         sdb = self.dbpool().session.dbhandle()
         seq = self.dbpool().session.sequence(txn=txn)
         id = str(seq.get(1, txn))
-        sdb.put(id, '', txn)
+        sdb.put(id, arena, txn)
         seq.close()
         sessid = int(id)
 
         return sessid
 
     @database.transactional(database_srv_attr='_database')
+    @validate_session
     def commit_session(self, sessid, **kwargs):
-        txn = kwargs["txn"]
+        txn = kwargs['txn']
 
-        if self._is_session_exists(sessid, txn):
-            self._delete_session(sessid, txn)
-            actions = self._retrieve_session_actions(sessid, txn)
-            actions.sort()
-            for actid in actions:
-                data = self._retrieve_action_record(actid, txn)
-                if data:
-                    try:
-                        data_list = data.split(' ', 1)
-                        dump_len = int(data_list[0])
-                        begin_pos = len(data_list[0]) + 1
-                        act_dump = data[begin_pos:begin_pos + dump_len]
+        self._delete_session(sessid, txn)
+        actions = self._retrieve_session_actions(sessid, txn)
+        actions.sort()
+        for actid in actions:
+            data = self._retrieve_action_record(actid, txn)
+            if data:
+                try:
+                    data_list = data.split(' ', 1)
+                    dump_len = int(data_list[0])
+                    begin_pos = len(data_list[0]) + 1
+                    act_dump = data[begin_pos:begin_pos + dump_len]
 
-                    except:
-                        continue
+                except:
+                    continue
 
-                    self._action_journal.record_action_dump(act_dump, txn)
-        else:
-            raise SessionError("Session '{}' doesn't exist".format(sessid))
+                self._action_journal.record_action_dump(act_dump, txn)
 
         self._unset_session_watchdog(sessid)
 
     @database.transactional(database_srv_attr='_database')
+    @validate_session
     def rollback_session(self, sessid, **kwargs):
-        txn = kwargs["txn"]
+        txn = kwargs['txn']
 
-        if self._is_session_exists(sessid, txn):
-            self._delete_session(sessid, txn)
-            actions = self._retrieve_session_actions(sessid, txn)
-            actions.sort()
-            actions.reverse()
-            for actid in actions:
-                data = self._retrieve_action_record(actid, txn)
-                if data:
-                    try:
-                        data_list = data.split(' ', 1)
-                        data = data[len(data_list[0]) + 2 + int(data_list[0]):]
-                        data_list = data.split(' ', 1)
-                        undo_act_dump = data[len(data_list[0]) + 1:]
+        self._delete_session(sessid, txn)
+        actions = self._retrieve_session_actions(sessid, txn)
+        actions.sort()
+        actions.reverse()
+        for actid in actions:
+            data = self._retrieve_action_record(actid, txn)
+            if data:
+                try:
+                    data_list = data.split(' ', 1)
+                    data = data[len(data_list[0]) + 2 + int(data_list[0]):]
+                    data_list = data.split(' ', 1)
+                    undo_act_dump = data[len(data_list[0]) + 1:]
 
-                    except:
-                        continue
+                except:
+                    continue
 
-                    act = Action.unserialize(undo_act_dump)
-                    act.apply(self._database, txn)
-        else:
-            raise SessionError("Session '{}' doesn't exist".format(sessid))
+                act = Action.unserialize(undo_act_dump)
+                act.apply(self._database, txn)
 
         self._unset_session_watchdog(sessid)
 
     @database.transactional(database_srv_attr='_database')
+    @validate_session
     def keepalive_session(self, sessid, **kwargs):
         txn = kwargs['txn']
-
-        if self._is_session_exists(sessid, txn):
-            if self._watchdogs.has_key(sessid):
-                self._unset_session_watchdog(sessid)
-                self._set_session_watchdog(sessid)
-        else:
-            raise SessionError("Session '{}' doesn't exist".format(sessid))
+        if self._watchdogs.has_key(sessid):
+            self._unset_session_watchdog(sessid)
+            self._set_session_watchdog(sessid)
 
     @database.transactional(database_srv_attr='_database')
+    @validate_session
     def apply_action(self, sessid, action, undo_action, **kwargs):
-        txn = kwargs['txn']
+        """
+        Apply given action object in given session.
+        User should also provide undo action which
+            will be applied on session rollback.
+        """
 
-        if self._is_session_exists(sessid, txn):
-            action.apply(self._database, txn)
-            actid = self._record_action(action, undo_action, txn)
-            self._link_session_action(sessid, actid, txn)
-        else:
-            raise SessionError("Session '{}' doesn't exist".format(sessid))
+        txn = kwargs['txn']
+        action.apply(self._database, txn)
+        actid = self._record_action(action, undo_action, txn)
+        self._link_session_action(sessid, actid, txn)
 
     @database.transactional(database_srv_attr='_database')
     def is_valid_session(self, sessid, **kwargs):
@@ -205,21 +216,29 @@ class manager(object):
         return self._is_session_exists(sessid, txn)
 
     @database.transactional(database_srv_attr='_database')
+    @validate_session
     def set_watchdog(self, sessid, **kwargs):
-        txn = kwargs['txn']
+        # transactional only because of session validation
         d = kwargs.get('deferred', None)
-        if self._is_session_exists(sessid, txn):
-            return self._set_session_watchdog(sessid, d)
-        else:
-            raise SessionError("Session '{}' doesn't exist".format(sessid))
+        return self._set_session_watchdog(sessid, d)
 
     @database.transactional(database_srv_attr='_database')
+    @validate_session
     def unset_watchdog(self, sessid, **kwargs):
+        # transactional only because of session validation
+        return self._unset_session_watchdog(sessid)
+
+    @database.transactional(database_srv_attr='_database')
+    @validate_session
+    def get_session_data(self, sessid, **kwargs):
         txn = kwargs['txn']
-        if self._is_session_exists(sessid, txn):
-            return self._unset_session_watchdog(sessid)
-        else:
-            raise SessionError("Session '{}' doesn't exist".format(sessid))
+        sdb = self.dbpool().session.dbhandle()
+
+        res = {
+            'arena': sdb.get(str(sessid), None, txn)
+        }
+
+        return res
 
     def _is_session_exists(self, sessid, txn):
         sdb = self.dbpool().session.dbhandle()

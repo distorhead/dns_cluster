@@ -490,7 +490,7 @@ class OperationHelpersMixin(object):
         else:
             return None
 
-    def arena_segment_by_zone(self, database_srv, zone, txn):
+    def arena_segment_by_zone(self, database_srv, zone, txn=None):
         zdb = database_srv.dbpool().dns_zone.dbhandle()
         arena_segment = zdb.get(reorder(zone), None, txn)
         if not arena_segment is None:
@@ -499,6 +499,28 @@ class OperationHelpersMixin(object):
                 return (as_list[0], as_list[1])
 
         return None
+
+    def is_zone_in_arena(self, database_srv, zone, arena, txn=None):
+        zdb = database_srv.dbpool().dns_zone.dbhandle()
+        as_pair = self.arena_segment_by_zone(database_srv, zone, txn)
+        if not as_pair is None:
+            zarena, _ = as_pair
+            if arena == zarena:
+                return True
+
+        return False
+
+    def is_admin(self, session_data):
+        print 'is_admin called'
+        return session_data['arena'] == '__admin__'
+
+    def has_access_to_zone(self, database_srv, zone, session_data, txn=None):
+        arena = session_data['arena']
+
+        if self.is_admin(session_data):
+            return True
+        else:
+            return self.is_zone_in_arena(database_srv, zone, arena, txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

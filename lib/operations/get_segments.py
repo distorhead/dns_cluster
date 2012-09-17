@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from lib import bdb_helpers
+from lib.operation import OperationError
 from lib.operations.session_operation import SessionOperation
 from lib.operations.operation_helpers import OperationHelpersMixin
 
@@ -26,10 +27,13 @@ class GetSegmentsOp(SessionOperation, OperationHelpersMixin):
             # otherwise take from session
             arena = self.required_data_by_key(session_data, 'arena', str)
 
+        # check that arena exists in db
+        self.check_arena_exists(database_srv, arena, txn)
+
         lock_srv.acquire(arena, sessid)
 
         asdb = database_srv.dbpool().arena_segment.dbhandle()
-        return bdb_helpers.get_all(asdb, self.arena, txn)
+        return bdb_helpers.get_all(asdb, arena, txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

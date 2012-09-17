@@ -3,8 +3,7 @@
 from lib import database
 from lib import session
 from lib import lock
-from lib.network.user_api.resources.session import SessionResource
-from lib.network.user_api.resources.arenas import ArenasResource
+from lib.network.user_api.resources import *
 
 from twisted.application import strports
 from twisted.web import server, resource
@@ -21,8 +20,22 @@ class UserApiApp(object):
                          interface=self._interface, port=self._port)
 
         root = resource.Resource()
-        root.putChild('session', SessionResource(self._sp))
-        root.putChild('arenas', ArenasResource(self._sp))
+        root.putChild('get_arenas', GetArenasResource(self._sp))
+        root.putChild('add_arena', AddArenaResource(self._sp))
+        root.putChild('del_arena', DelArenaResource(self._sp))
+        root.putChild('get_segments', GetSegmentsResource(self._sp))
+        root.putChild('add_segment', AddSegmentResource(self._sp))
+        root.putChild('del_segment', DelSegmentResource(self._sp))
+        root.putChild('get_zones', GetZonesResource(self._sp))
+        root.putChild('add_zone', AddZoneResource(self._sp))
+        root.putChild('del_zone', DelZoneResource(self._sp))
+        root.putChild('get_records', GetRecordsResource(self._sp))
+        root.putChild('add_record', AddRecordResource(self._sp))
+        root.putChild('del_record', DelRecordResource(self._sp))
+        root.putChild('begin_session', BeginSessionResource(self._sp))
+        root.putChild('commit_session', CommitSessionResource(self._sp))
+        root.putChild('rollback_session', RollbackSessionResource(self._sp))
+        root.putChild('keepalive_session', KeepaliveSessionResource(self._sp))
         factory = server.Site(root)
 
         twisted_service = strports.service(endpoint_spec, factory)

@@ -19,6 +19,8 @@ class GetRecordsOp(SessionOperation, OperationHelpersMixin):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
 
+        self.check_zone_exists(database_srv, self.zone, txn)
+
         self._check_access(service_provider, sessid, session_data, None, txn)
 
         # retrieve arena and segment needed for lock resource

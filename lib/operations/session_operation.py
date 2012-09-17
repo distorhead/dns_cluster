@@ -17,11 +17,11 @@ class SessionOperation(Operation):
         Operation.__init__(self, **kwargs)
         self.sessid = self.optional_data_by_key(kwargs, 'sessid', int, None)
         if self.sessid is None:
-            if not kwargs.has_key('arena'):
+            self.auth_arena = kwargs.get('auth_arena', None)
+            if self.auth_arena is None:
                 raise OperationError("Unable to construct operation: "
                                      "wrong operation data: "
-                                     "either 'sessid' or 'arena' field required")
-            self.arena = kwargs['arena']
+                                     "either 'sessid' or 'auth_arena' field required")
 
     def _do_run(self, service_provider, **kwargs):
         database_srv = service_provider.get('database')
@@ -30,7 +30,7 @@ class SessionOperation(Operation):
 
         with database_srv.transaction() as txn:
             if self.sessid is None:
-                with session_srv.session(self.arena, txn=txn) as sessid:
+                with session_srv.session(self.auth_arena, txn=txn) as sessid:
                     session_data = session_srv.get_session_data(sessid, txn=txn)
 
                     try:

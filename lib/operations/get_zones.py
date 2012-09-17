@@ -40,7 +40,7 @@ class GetZonesOp(SessionOperation, OperationHelpersMixin):
                 return self._get_arena_segment_zones(arena, self.segment,
                                                      service_provider, sessid, txn)
 
-    def _get_all_zones(service_provider, sessid, txn):
+    def _get_all_zones(self, service_provider, sessid, txn):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
 
@@ -66,6 +66,8 @@ class GetZonesOp(SessionOperation, OperationHelpersMixin):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
 
+        self.check_arena_exists(database_srv, arena, txn)
+
         lock_srv.acquire(arena, sessid)
 
         asdb = database_srv.dbpool().arena_segment.dbhandle()
@@ -80,6 +82,9 @@ class GetZonesOp(SessionOperation, OperationHelpersMixin):
     def _get_arena_segment_zones(self, arena, segment, service_provider, sessid, txn):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
+
+        self.check_arena_exists(database_srv, arena, txn)
+        self.check_segment_exists(database_srv, arena, segment, txn)
 
         resource = lock_srv.RESOURCE_DELIMITER.join([arena, segment])
         lock_srv.acquire(resource, sessid)

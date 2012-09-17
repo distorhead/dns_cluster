@@ -29,6 +29,21 @@ class OperationResource(resource.Resource):
             raise RequestError("'{}' field required".format(field))
         return d[field]
 
+    @classmethod
+    def required_fields(cls, req_args, *fields):
+        res = {}
+        for field in fields:
+            res[field] = cls.required_field(req_args, field)[0]
+        return res
+
+    @classmethod
+    def optional_fields(cls, req_args, *fields):
+        res = {}
+        for field in fields:
+            if req_args.has_key(field):
+                res[field] = req_args[field][0]
+        return res
+
     def __init__(self, sp):
         self._sp = sp
 
@@ -40,7 +55,7 @@ class OperationResource(resource.Resource):
     def operation_failure(self, failure, request):
         failure.trap(OperationError, ActionError, SessionError, LockError)
         log.msg("Operation failure:", failure)
-        self.response(request, 400, {'error': failure.getErrorMessage()})
+        self.response(request, 200, {'error': failure.getErrorMessage()})
 
     def unknown_failure(self, failure, request):
         log.err("An error occured:")
@@ -70,7 +85,7 @@ def request_handler(func):
             return func(self, request)
 
         except (RequestError, OperationError, ActionError, SessionError) as e:
-            return self.response(request, 400, {"error": str(e)})
+            return self.response(request, 200, {"error": str(e)})
 
         except Exception, e:
             log.err("An error occured:")

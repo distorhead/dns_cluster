@@ -193,8 +193,8 @@ class manager(object):
     def keepalive_session(self, sessid, **kwargs):
         txn = kwargs['txn']
         if self._watchdogs.has_key(sessid):
-            self._unset_session_watchdog(sessid)
-            self._set_session_watchdog(sessid)
+            d = self._unset_session_watchdog(sessid)
+            self._set_session_watchdog(sessid, d)
 
     @database.transactional(database_srv_attr='_database')
     @validate_session

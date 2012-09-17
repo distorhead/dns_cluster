@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from lib.operation import OperationError
 from lib.actions import *
 from lib.actions.record import RecordAction
 from lib.common import split, reorder
@@ -499,6 +500,22 @@ class OperationHelpersMixin(object):
                 return (as_list[0], as_list[1])
 
         return None
+
+    def check_arena_exists(self, database_srv, arena, txn):
+        adb = database_srv.dbpool().arena.dbhandle()
+        if not adb.exists(arena, txn):
+            raise OperationError("No such arena '{}'".format(arena))
+
+    def check_segment_exists(self, database_srv, arena, segment, txn):
+        asdb = database_srv.dbpool().arena_segment.dbhandle()
+        if not segment in bdb_helpers.get_all(asdb, arena, txn):
+            raise OperationError("No such segment '{}' in arena '{}'".format(
+                                 segment, arena))
+
+    def check_zone_exists(self, database_srv, zone, txn):
+        zdb = database_srv.dbpool().dns_zone.dbhandle()
+        if not zdb.exists(reorder(zone), txn):
+            raise OperationError("No such zone '{}'".format(zone))
 
     def is_zone_in_arena(self, database_srv, zone, arena, txn=None):
         zdb = database_srv.dbpool().dns_zone.dbhandle()

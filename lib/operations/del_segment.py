@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from lib.operations.session_operation import SessionOperation
+from lib.operations.operation_helpers import OperationHelpersMixin
 from lib.actions.add_segment import AddSegment
 from lib.actions.del_segment import DelSegment
 
@@ -8,12 +9,12 @@ from lib.actions.del_segment import DelSegment
 __all__ = ["DelSegmentOp"]
 
 
-class DelSegmentOp(SessionOperation):
+class DelSegmentOp(SessionOperation, OperationHelpersMixin):
     def __init__(self, **kwargs):
         SessionOperation.__init__(self, **kwargs)
         self._kwargs = kwargs
 
-    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
 

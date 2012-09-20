@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec sudo twistd --pidfile="/run/alpha_user_apid.pid" $@ user_apid -c tests/configs/user_apid/alpha.yaml -s /run/alpha.pid

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+exec sudo twistd --pidfile="/run/gamma_user_apid.pid" $@ user_apid -c tests/configs/user_apid/gamma.yaml -s /run/gamma.pid

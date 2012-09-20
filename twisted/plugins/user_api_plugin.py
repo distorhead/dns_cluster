@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import yaml
+
 from zope.interface import implements
 from twisted.internet import reactor
 from twisted.python import usage
@@ -44,7 +46,11 @@ class UserApiServiceMaker(object):
             f = open(cfg_path, 'r')
             cfg = yaml.load(f)
             f.close()
-            return cfg
+
+            if cfg is None:
+                return {}
+            else:
+                return cfg
         except:
             return {}
 

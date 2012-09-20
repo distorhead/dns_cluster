@@ -17,9 +17,10 @@ class DelZoneResource(OperationResource):
         kwargs.update(self.optional_fields(request.args, 'segment', 'zone'))
         operation = DelZoneOp(**kwargs)
 
-        d.delCallback(self._del_zone_done, request)
-        d.delErrback(self.operation_failure, request)
-        d.delErrback(self.unknown_failure, request)
+        d = self.run_operation(operation, request)
+        d.addCallback(self._del_zone_done, request)
+        d.addErrback(self.operation_failure, request)
+        d.addErrback(self.unknown_failure, request)
 
         return server.NOT_DONE_YET
 

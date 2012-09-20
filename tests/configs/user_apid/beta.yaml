@@ -1,0 +1,7 @@
+database:
+    dbenv_homedir: ./tests/databases/beta
+    dbfile: dlz.db
+
+interface: 127.0.0.1
+port: 2101
+syncd_pid_path: /run/beta.pid

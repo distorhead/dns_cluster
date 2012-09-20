@@ -528,7 +528,6 @@ class OperationHelpersMixin(object):
         return False
 
     def is_admin(self, session_data):
-        print 'is_admin called'
         return session_data['arena'] == '__admin__'
 
     def has_access_to_zone(self, database_srv, zone, session_data, txn=None):

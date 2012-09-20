@@ -13,6 +13,7 @@ from lib.operation import OperationError
 from lib.action import ActionError
 from lib.session import SessionError
 from lib.lock import LockError
+from lib.event_storage import EventStorage
 
 
 class RequestError(Exception): pass
@@ -46,10 +47,12 @@ class OperationResource(resource.Resource):
 
     def __init__(self, sp):
         self._sp = sp
+        self._es = EventStorage('operation_done')
 
     def run_operation(self, operation, request):
         log.msg("Deferring operation run:", operation)
         d = threads.deferToThread(operation.run, self._sp)
+        d.addCallback(self._operation_done, operation)
         return d
 
     def operation_failure(self, failure, request):
@@ -75,6 +78,15 @@ class OperationResource(resource.Resource):
 
     def parse_content(self, content):
         return yaml.load(content)
+
+    def register_event(self, event):
+        return self._es.register_event(event)
+
+    def _operation_done(self, res, operation):
+        d = self._es.retrieve_event('operation_done')
+        if not d is None:
+            d.callback(operation)
+        return res
 
 
 def request_handler(func):

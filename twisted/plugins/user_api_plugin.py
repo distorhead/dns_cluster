@@ -17,7 +17,8 @@ CONFIG_DEFAULT = {
     },
 
     "interface": "localhost",
-    "port": 2100
+    "port": 2100,
+    "syncd_pid_path": "twistd.pid"
 }
 
 
@@ -26,7 +27,9 @@ class Options(usage.Options):
         ["interface", "i", None, "The host name or IP to listen on."],
         ["port", "p", None, "The port number to listen on."],
         ["config", "c", "/etc/dns_cluster/user_apid.yaml",
-            "Path to the configuration file."]
+            "Path to the configuration file."],
+        ["syncd_pid_path", "s", None,
+            "Path to the file containing pid of the syncd daemon."]
     ]
 
 
@@ -60,8 +63,13 @@ class UserApiServiceMaker(object):
         else:
             port = cfg["port"]
 
+        if not options["syncd_pid_path"] is None:
+            syncd_pid_path = options["syncd_pid_path"]
+        else:
+            syncd_pid_path = cfg["syncd_pid_path"]
+
         sp = ServiceProvider(init_srv=True, cfg=cfg)
-        self._app = UserApiApp(interface, port, sp)
+        self._app = UserApiApp(interface, port, syncd_pid_path, sp)
         return self._app.make_service()
 
 

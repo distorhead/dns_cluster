@@ -11,7 +11,7 @@ class BeginSessionResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        kwargs = self.required_fields(request.args, 'arena')
+        kwargs = self.required_fields(request.args, 'auth_arena')
         operation = SessionBeginOp(**kwargs)
 
         d = self.run_operation(operation, request)

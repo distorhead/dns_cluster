@@ -13,7 +13,7 @@ class GetRecordsResource(OperationResource):
     def render_GET(self, request):
         print "render_GET"
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena')
-        kwargs.update(self.required_fields(request.args, 'zone'))
+        kwargs.update(self.optional_fields(request.args, 'zone'))
 
         operation = GetRecordsOp(**kwargs)
 

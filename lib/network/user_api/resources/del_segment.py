@@ -12,7 +12,7 @@ class DelSegmentResource(OperationResource):
     @request_handler
     def render_GET(self, request):
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.required_fields(request.args, 'segment'))
+        kwargs.update(self.optional_fields(request.args, 'segment'))
         operation = DelSegmentOp(**kwargs)
 
         d = self.run_operation(operation, request)

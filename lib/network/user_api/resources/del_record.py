@@ -24,7 +24,7 @@ class DelRecordResource(OperationResource):
     def _del_record_handler(self, request):
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena')
 
-        rec_spec = self.required_fields(request.args, 'zone', 'type')
+        rec_spec = self.optional_fields(request.args, 'zone', 'type')
         rec_spec.update(self.optional_fields(request.args,
                                              'host', 'ip', 'domain', 'zone_dst',
                                              'primary_ns', 'resp_person', 'serial',

@@ -12,7 +12,7 @@ class AddSegmentResource(OperationResource):
     @request_handler
     def render_GET(self, request):
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.required_fields(request.args, 'segment'))
+        kwargs.update(self.optional_fields(request.args, 'segment'))
         operation = AddSegmentOp(**kwargs)
 
         d = self.run_operation(operation, request)

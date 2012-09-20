@@ -24,7 +24,7 @@ class AddRecordResource(OperationResource):
     def _add_record_handler(self, request):
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena')
 
-        rec_spec = self.required_fields(request.args, 'zone', 'type')
+        rec_spec = self.optional_fields(request.args, 'zone', 'type')
         rec_spec.update(self.optional_fields(request.args,
                                              'ttl', 'host', 'ip',
                                              'domain', 'zone_dst', 'priority',

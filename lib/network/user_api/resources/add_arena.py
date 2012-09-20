@@ -12,7 +12,7 @@ class AddArenaResource(OperationResource):
     @request_handler
     def render_GET(self, request):
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena')
-        kwargs.update(self.required_fields(request.args, 'arena'))
+        kwargs.update(self.optional_fields(request.args, 'arena'))
         operation = AddArenaOp(**kwargs)
 
         d = self.run_operation(operation, request)

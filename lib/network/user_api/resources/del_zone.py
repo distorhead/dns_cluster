@@ -14,7 +14,7 @@ class DelZoneResource(OperationResource):
     @request_handler
     def render_GET(self, request):
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.required_fields(request.args, 'segment', 'zone'))
+        kwargs.update(self.optional_fields(request.args, 'segment', 'zone'))
         operation = DelZoneOp(**kwargs)
 
         d.delCallback(self._del_zone_done, request)

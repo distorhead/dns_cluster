@@ -15,14 +15,14 @@ class AddZoneResource(OperationResource):
     def render_GET(self, request):
         print "render_GET"
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.required_fields(request.args, 'segment', 'zone'))
+        kwargs.update(self.optional_fields(request.args, 'segment', 'zone'))
         return self.add_zone_finalize(kwargs, request)
 
     @request_handler
     def render_PUT(self, request):
         print "render_PUT"
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.required_fields(request.args, 'segment', 'zone'))
+        kwargs.update(self.optional_fields(request.args, 'segment', 'zone'))
 
         req = self.parse_content(request.content.read())
 

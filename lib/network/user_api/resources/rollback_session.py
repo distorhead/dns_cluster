@@ -11,7 +11,7 @@ class RollbackSessionResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        kwargs = self.required_fields(request.args, 'sessid')
+        kwargs = self.optional_fields(request.args, 'sessid')
         operation = SessionRollbackOp(**kwargs)
 
         d = self.run_operation(operation, request)

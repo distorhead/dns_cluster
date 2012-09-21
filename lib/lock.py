@@ -12,60 +12,6 @@ from lib.service import ServiceProvider
 class LockError(Exception): pass
 
 
-#class Lock(object):
-    #REPEAT_PERIOD_SECONDS_DEFAULT = 1.0
-    #MAX_ATTEMPTS_DEFAULT = 5
-
-    #def __init__(self, lock_manager, sessid, resources, **kwargs):
-        #self.lock_manager = lock_manager
-        #self.sessid = sessid
-        #self.resources = resources
-        #self.repeat_period = kwargs.get("repeat_period",
-                                        #self.REPEAT_PERIOD_SECONDS_DEFAULT)
-        #self.max_attempts = kwargs.get("max_attempts",
-                                       #self.MAX_ATTEMPTS_DEFAULT)
-        #self._used = False
-        #self._acquired = False
-
-    #def _check_not_used(self):
-        #if self._used:
-            #raise LockError("Lock object must not be used repeatedly")
-
-    #def _check_acquired(self):
-        #if not self._acquired:
-            #raise LockError("Lock is not acquired")
-
-    #def __enter__(self):
-        #return self.acquire()
-
-    #def __exit__(self, type, value, traceback):
-        #self.release()
-
-    #def acquire(self):
-        #self._check_not_used()
-
-        #for resource in self.resources:
-            #attempt = 1
-            #while not self.lock_manager.acquire(resource, self.sessid):
-                #if attempt == self.max_attempts:
-                    #raise LockError("Unable to acquire lock for resource "
-                                    #"'{}'".format(resource))
-
-                #time.sleep(self.repeat_period)
-                #attempt += 1
-
-        #self._acquired = True
-
-    #def release(self):
-        #self._check_not_used()
-        #self._check_acquired()
-
-        #for resource in reversed(self.resources):
-            #self.lock_manager.release(resource)
-
-        #self._used = True
-
-
 @ServiceProvider.register("lock", deps=["database"])
 class manager(object):
     """

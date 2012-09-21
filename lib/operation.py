@@ -12,6 +12,8 @@ class Operation(object):
     Subclasses must implement _do_run method, that performs actual operation.
     """
 
+    GLOBAL_RESOURCE = '_global'
+
     @classmethod
     def construction_failure(cls, msg):
         raise OperationError("Unable to construct operation: " + str(msg))

@@ -30,8 +30,9 @@ class AddRecordOp(SessionOperation, OperationHelpersMixin):
 
         # retrieve zone arena and segment needed for lock
         arena, segment = self.arena_segment_by_zone(database_srv, do_action.zone, txn)
-        resource = lock_srv.RESOURCE_DELIMITER.join([arena, segment, do_action.zone])
-        lock_srv.acquire(resource, sessid)
+        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,
+                                                     segment, do_action.zone])
+        lock_srv.try_acquire(resource, sessid)
 
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 

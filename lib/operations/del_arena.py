@@ -24,7 +24,9 @@ class DelArenaOp(SessionOperation, OperationHelpersMixin):
 
         self._check_access(service_provider, sessid, session_data, do_action, txn)
 
-        lock_srv.acquire(do_action.arena, sessid)
+        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
+                                                     do_action.arena])
+        lock_srv.try_acquire(resource, sessid)
 
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 

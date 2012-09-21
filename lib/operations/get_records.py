@@ -27,8 +27,9 @@ class GetRecordsOp(SessionOperation, OperationHelpersMixin):
         arena, segment = self.arena_segment_by_zone(database_srv, self.zone, txn)
 
         # construct and lock resource
-        resource = lock_srv.RESOURCE_DELIMITER.join([arena, segment, self.zone])
-        lock_srv.acquire(resource, sessid)
+        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,
+                                                     segment, self.zone])
+        lock_srv.try_acquire(resource, sessid)
 
         res = []
         ddb = database_srv.dbpool().dns_data.dbhandle()

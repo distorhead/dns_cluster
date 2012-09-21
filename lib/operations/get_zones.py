@@ -44,7 +44,7 @@ class GetZonesOp(SessionOperation, OperationHelpersMixin):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
 
-        lock_srv.acquire('_global', sessid)
+        lock_srv.try_acquire(self.GLOBAL_RESOURCE, sessid)
 
         szdb = database_srv.dbpool().segment_zone.dbhandle()
         as_zone_map = bdb_helpers.keys_values(szdb, txn)
@@ -68,26 +68,31 @@ class GetZonesOp(SessionOperation, OperationHelpersMixin):
 
         self.check_arena_exists(database_srv, arena, txn)
 
-        lock_srv.acquire(arena, sessid)
+        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena])
+        lock_srv.try_acquire(resource, sessid)
 
         asdb = database_srv.dbpool().arena_segment.dbhandle()
 
         res = []
         for segment in bdb_helpers.get_all(asdb, arena, txn):
             res += self._get_arena_segment_zones(arena, segment, service_provider,
-                                                 sessid, txn)
+                                                 sessid, txn, False)
 
         return res
 
-    def _get_arena_segment_zones(self, arena, segment, service_provider, sessid, txn):
+    def _get_arena_segment_zones(self, arena, segment, service_provider, sessid, txn,
+                                 take_lock=True):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
 
         self.check_arena_exists(database_srv, arena, txn)
         self.check_segment_exists(database_srv, arena, segment, txn)
 
-        resource = lock_srv.RESOURCE_DELIMITER.join([arena, segment])
-        lock_srv.acquire(resource, sessid)
+        if take_lock:
+            resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
+                                                         arena,
+                                                         segment])
+            lock_srv.try_acquire(resource, sessid)
 
         szdb = database_srv.dbpool().segment_zone.dbhandle()
 

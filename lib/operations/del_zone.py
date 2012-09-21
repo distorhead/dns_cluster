@@ -33,8 +33,9 @@ class DelZoneOp(SessionOperation, OperationHelpersMixin):
                               zone=do_action.zone)
 
         # construct lock resource
-        resource = lock_srv.RESOURCE_DELIMITER.join([arena, segment, do_action.zone])
-        lock_srv.acquire(resource, sessid)
+        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,
+                                                     segment, do_action.zone])
+        lock_srv.try_acquire(resource, sessid)
 
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 

@@ -29,9 +29,10 @@ class DelSegmentOp(SessionOperation, OperationHelpersMixin):
         undo_action = AddSegment(arena=do_action.arena,
                                  segment=do_action.segment)
 
-        resource = lock_srv.RESOURCE_DELIMITER.join(
-                       [do_action.arena, do_action.segment])
-        lock_srv.acquire(resource, sessid)
+        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
+                                                     do_action.arena,
+                                                     do_action.segment])
+        lock_srv.try_acquire(resource, sessid)
 
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 

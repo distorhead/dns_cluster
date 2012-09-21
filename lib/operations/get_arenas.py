@@ -15,7 +15,7 @@ class GetArenasOp(SessionOperation, OperationHelpersMixin):
 
         self._check_access(service_provider, sessid, session_data, None, txn)
 
-        lock_srv.acquire('_global', sessid)
+        lock_srv.try_acquire(self.GLOBAL_RESOURCE, sessid)
 
         adb = database_srv.dbpool().arena.dbhandle()
         return bdb_helpers.keys(adb, txn)

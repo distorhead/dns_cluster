@@ -30,7 +30,8 @@ class GetSegmentsOp(SessionOperation, OperationHelpersMixin):
         # check that arena exists in db
         self.check_arena_exists(database_srv, arena, txn)
 
-        lock_srv.acquire(arena, sessid)
+        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena])
+        lock_srv.try_acquire(resource, sessid)
 
         asdb = database_srv.dbpool().arena_segment.dbhandle()
         return bdb_helpers.get_all(asdb, arena, txn)

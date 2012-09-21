@@ -66,21 +66,24 @@ class manager(object):
         Raises an exception if maximum number of attempts achieved.
         """
 
-        repeat_period = kwargs.get('repeat_period',
-                                        self.REPEAT_PERIOD_SECONDS_DEFAULT)
+        repeat_period = kwargs.get('repeat_period', self.REPEAT_PERIOD_SECONDS_DEFAULT)
         max_attempts = kwargs.get('max_attempts', self.MAX_ATTEMPTS_DEFAULT)
 
         if self._is_valid_resource(resource):
             attempt = 1
-            while not self.try_acquire(resource, sessid):
+            l = self.Lock(resource, sessid)
+            while True:
+                with self._database.transaction() as txn:
+                    if self._do_acquire(l, txn):
+                        return
+
                 if attempt == max_attempts:
-                    raise LockError("Unable to acquire lock for resource "
-                                    "'{}'".format(resource))
+                    self._lock_failure(resource, sessid)
 
                 time.sleep(repeat_period)
                 attempt += 1
         else:
-            return False
+            self._resource_not_valid_failure(resource)
 
     @database.transactional(database_srv_attr='_database')
     def try_acquire(self, resource, sessid, **kwargs):
@@ -88,10 +91,10 @@ class manager(object):
         if self._is_valid_resource(resource):
             txn = kwargs['txn']
             l = self.Lock(resource, sessid)
-            return self._do_acquire(l, txn)
+            if not self._do_acquire(l, txn):
+                self._lock_failure(resource, sessid)
         else:
-            print 'Bad resource:', resource
-            return False
+            self._resource_not_valid_failure(resource)
 
     @database.transactional(database_srv_attr='_database')
     def release(self, resource, **kwargs):
@@ -239,6 +242,13 @@ class manager(object):
             self._do_release(res, True, txn)
 
         bdb_helpers.delete(sldb, sessid_str, txn)
+
+    def _lock_failure(self, resource, sessid):
+        raise LockError("Unable to acquire lock for resource "
+                        "'{}' in session '{}'".format(resource, sessid))
+
+    def _resource_not_valid_failure(self, resource):
+        raise LockError("Bad resource '{}'".format(resource))
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

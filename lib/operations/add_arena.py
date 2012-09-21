@@ -24,7 +24,7 @@ class AddArenaOp(SessionOperation, OperationHelpersMixin):
 
         self._check_access(service_provider, sessid, session_data, do_action, txn)
 
-        lock_srv.acquire('_global', sessid)
+        lock_srv.try_acquire(self.GLOBAL_RESOURCE, sessid)
 
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 

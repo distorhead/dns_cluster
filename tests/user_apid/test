@@ -1,0 +1,9 @@
+#!/bin/bash
+
+SCRIPT_DIR=$(dirname $0)
+export PYTHONPATH=$SCRIPT_DIR/../../
+PYTEST=$SCRIPT_DIR/test.py
+
+rm -rf *.log* &> /dev/null
+killall -9 twistd &> /dev/null
+python $PYTEST $@

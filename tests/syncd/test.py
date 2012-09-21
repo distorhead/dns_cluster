@@ -19,7 +19,7 @@ from lib.service import ServiceProvider
 from lib.app.sync.sync import SyncApp
 
 
-SCRIPT_PATH = os.path.dirname(os.path.realpath(__file__))
+SCRIPT_DIR_PATH = os.path.dirname(os.path.realpath(__file__))
 
 
 class TestError(Exception): pass
@@ -28,17 +28,17 @@ class TestError(Exception): pass
 class Test1(unittest.TestCase):
     servers = {
         "alpha": {
-            "exec": "{}/alpha --logfile=alpha.log".format(SCRIPT_PATH),
+            "exec": "{}/alpha --logfile=alpha.log".format(SCRIPT_DIR_PATH),
             "pyconfig": "tests.configs.pyconf.alpha"
         },
 
         "beta": {
-            "exec": "{}/beta --logfile=beta.log".format(SCRIPT_PATH),
+            "exec": "{}/beta --logfile=beta.log".format(SCRIPT_DIR_PATH),
             "pyconfig": "tests.configs.pyconf.beta"
         },
 
         "gamma": {
-            "exec": "{}/gamma --logfile=gamma.log".format(SCRIPT_PATH),
+            "exec": "{}/gamma --logfile=gamma.log".format(SCRIPT_DIR_PATH),
             "pyconfig": "tests.configs.pyconf.gamma"
         }
     }
@@ -237,7 +237,8 @@ class Test1(unittest.TestCase):
 
     def tearDown(self):
         for srv in self.servers:
-            self._kill_server(srv)
+            if self._run:
+                self._kill_server(srv)
 
     def killer_healer(self):
         """

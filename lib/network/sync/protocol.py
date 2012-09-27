@@ -32,16 +32,16 @@ class YamlMsgProtocol(LineReceiver):
         except yaml.YAMLError, exc:
             log.err("Unable to make yaml dump from message:", exc)
 
-    def _handle_message(self, msg):
+    def _handle_msg(self, msg):
         if not self.service is None:
             self.service.handle_message(msg)
 
-    def _handle_message_str(self, msg_dump):
+    def _handle_msg_str(self, msg_dump):
         msg_data = self._parse_msg(msg_dump)
 
         if isinstance(msg_data, dict):
             log.msg("Raw message:", repr(msg_dump))
-            self._handle_message(msg_data)
+            self._handle_msg(msg_data)
 
     def set_service(self, service):
         self.service = IService(service)
@@ -50,7 +50,7 @@ class YamlMsgProtocol(LineReceiver):
         if line == '':
             msg = "\n".join(self._received_lines)
             self._received_lines = []
-            self._handle_message_str(msg)
+            self._handle_msg_str(msg)
         else:
             self._received_lines.append(line)
 
@@ -66,8 +66,7 @@ class YamlMsgProtocol(LineReceiver):
 
 class SyncFactory(Factory):
     PROTOCOLS = {
-        "yaml": YamlMsgProtocol
-        #TODO: binary
+        'yaml': YamlMsgProtocol
     }
 
     def __init__(self, **kwargs):

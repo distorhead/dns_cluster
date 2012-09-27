@@ -1,7 +1,11 @@
+transport-encrypt: true
+
 server:
     name: beta
     interface: 127.0.0.1
     port: 1101
+    private-key: ./tests/configs/syncd/cert/beta.key
+    cert: ./tests/configs/syncd/cert/beta.pem
 
 database:
     dbenv_homedir: ./tests/databases/beta

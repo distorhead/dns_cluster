@@ -13,9 +13,19 @@ class Peer(object):
             self.service = service
 
     @staticmethod
-    def make_service(interface, port, connectionMade):
-        endpoint_spec = "tcp:interface={interface}:port={port}".format(
-                         interface=interface, port=port)
+    def make_service(endpoint_data, connectionMade):
+        if endpoint_data['transport-encrypt']:
+            endpoint_spec = ("ssl:interface={interface}:port={port}:"
+                             "privateKey={pkey}:certKey={cert}".format(
+                                interface=endpoint_data['interface'],
+                                port=endpoint_data['port'],
+                                pkey=endpoint_data['private-key'],
+                                cert=endpoint_data['cert']))
+        else:
+            endpoint_spec = "tcp:interface={interface}:port={port}".format(
+                             interface=endpoint_data['interface'],
+                             port=endpoint_data['port'])
+
         f = SyncServerFactory()
         f.connectionMade = connectionMade
         twisted_service = strports.service(endpoint_spec, f)
@@ -30,6 +40,7 @@ class Peer(object):
         self.name = name
         self.client_host = kwargs.get('client_host', None)
         self.client_port = kwargs.get('client_port', None)
+        self.client_transport_encrypt = kwargs.get('client_transport_encrypt', False)
         self.client = None
         self.server = None
 
@@ -62,8 +73,13 @@ class Peer(object):
         """
 
         if self.client is None:
-            endpoint_spec = "tcp:host={host}:port={port}".format(
-                             host=self.client_host, port=self.client_port)
+            if self.client_transport_encrypt:
+                endpoint_spec = "ssl:host={host}:port={port}".format(
+                                    host=self.client_host, port=self.client_port)
+            else:
+                endpoint_spec = "tcp:host={host}:port={port}".format(
+                                    host=self.client_host, port=self.client_port)
+
             ep = endpoints.clientFromString(reactor, endpoint_spec)
             d = ep.connect(SyncClientFactory())
             d.addCallback(self.setup_client_connection)

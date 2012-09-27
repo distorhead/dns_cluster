@@ -15,6 +15,8 @@ from lib.actions import *
 
 
 CONFIG_DEFAULT = {
+    "transport-encrypt": False,
+
     "database": {
         "dbenv_homedir": "/var/lib/bind",
         "dbfile": "dlz.db"
@@ -35,6 +37,9 @@ class Options(usage.Options):
         ["name", "n", None, "Server identificator."],
         ["interface", "i", None, "The host name or IP to listen on."],
         ["port", "p", None, "The port number to listen on."],
+        ["transport-encrypt", "e", None, "Enable/disable transport encryption (yes/no)"],
+        ["private-key", "k", None, "Private key file for transport encryption"],
+        ["cert", "s", None, "Certificate file for transport encryption"],
         ["config", "c", "/etc/dns_cluster.yaml", "Path to the configuration file."]
     ]
 
@@ -59,30 +64,38 @@ class SyncServiceMaker(object):
 
     def makeService(self, options):
         cfg = CONFIG_DEFAULT
-        new_cfg = self._read_cfg(options["config"])
+        new_cfg = self._read_cfg(options['config'])
         cfg.update(new_cfg)
 
-        if not options["name"] is None:
-            name = options["name"]
-        else:
-            name = cfg["server"]["name"]
+        cfg.setdefault('server', {})
 
-        if not options["interface"] is None:
-            interface = options["interface"]
-        else:
-            interface = cfg["server"]["interface"]
+        if not options['name'] is None:
+            cfg['server']['name'] = options['name']
 
-        if not options["port"] is None:
-            port = options["port"]
-        else:
-            port = cfg["server"]["port"]
+        if not options['interface'] is None:
+            cfg['server']['interface'] = options['interface']
 
-        peers = cfg["peers"]
+        if not options['port'] is None:
+            cfg['server']['port'] = options['port']
+
+        if not options['private-key'] is None:
+            cfg['server']['private-key'] = options['private-key']
+
+        if not options['cert'] is None:
+            cfg['server']['cert'] = options['cert']
+
+        if not options['transport-encrypt'] is None:
+            val = options['transport-encrypt']
+            if val == "yes":
+                cfg['transport-encrypt'] = True
+            elif val == "no":
+                cfg['transport-encrypt'] = False
+            else:
+                raise Exception("unknown value for transport-encrypt: "
+                                "'{}'".format(val));
 
         sp = ServiceProvider(init_srv=True, cfg=cfg)
-        self._sa = SyncApp(name, interface, port, peers,
-                           sp.get("database"),
-                           sp.get("action_journal"))
+        self._sa = SyncApp(cfg, sp.get("database"), sp.get("action_journal"))
 
         signal.signal(signal.SIGUSR2, self._sighandler)
         self._sa.start_pull()

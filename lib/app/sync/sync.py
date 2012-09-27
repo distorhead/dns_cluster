@@ -4,8 +4,13 @@ from lib import database
 from lib.action import Action, ActionError
 from lib.network.sync.peer import Peer
 from lib.network.sync.protocol import SyncServerFactory
+from lib.common import retrieve_key
+
 from twisted.internet import threads, reactor, task, endpoints
 from twisted.python import log
+
+
+class SyncAppError(Exception): pass
 
 
 class SyncApp(object):
@@ -19,25 +24,64 @@ class SyncApp(object):
         }
     }
 
-    def __init__(self, name, interface, port, peers, db, action_journal, **kwargs):
-        self._name = name
-        self._interface = interface
-        self._port = port
+    @classmethod
+    def cfg_failure(cls, msg):
+        raise SyncAppError("Configuration failure: {}".format(msg))
+
+    @classmethod
+    def required_key(cls, d, key, msg):
+        return retrieve_key(d, key, failure_func=cls.cfg_failure, failure_msg=msg)
+
+    def __init__(self, cfg, db, action_journal, **kwargs):
+        srv = self.required_key(cfg, 'server', "server config section required")
+        self._name = self.required_key(srv, 'name', "server name required")
+
+        transport_encrypt = cfg.get('transport-encrypt', True)
+
+        # initialize server endpoint data
+        self._endpoint_data = {
+            'transport-encrypt': transport_encrypt,
+            'interface': self.required_key(srv, 'interface',
+                                           "server interface required"),
+            'port': self.required_key(srv, 'port', "server port required")
+        }
+
+        if transport_encrypt:
+            self._endpoint_data['private-key'] = self.required_key(srv, 'private-key',
+                    "server private-key field required "
+                    "for transport encryption mode")
+            self._endpoint_data['cert'] = self.required_key(srv, 'cert',
+                    "server cert field required "
+                    "for transport encryption mode")
+
         self._database = db
         self._action_journal = action_journal
-        self._pull_period = kwargs.get("pull_period", 10.0)
+        self._pull_period = kwargs.get('pull_period', 10.0)
         self._active_peers = []
         self._peers = {}
         self._dbpool = database.DatabasePool(self.DATABASES,
                                              self._database.dbenv(),
                                              self._database.dbfile())
 
+        peers = self.required_key(cfg, 'peers', {})
+
+        # application just started -- block operations allowed now
         pdb = self._dbpool.peer.dbhandle()
         with self._database.transaction() as txn:
             for pname in peers:
                 pdesc = peers[pname]
-                peer = Peer(pname, client_host=pdesc["host"],
-                                   client_port=pdesc["port"])
+                peerdata = {
+                    'client_host': self.required_key(pdesc, 'host',
+                            "host required for peer '{}'".format(pname)),
+
+                    'client_port': self.required_key(pdesc, 'port',
+                            "port required for peer '{}'".format(pname)),
+                }
+
+                if transport_encrypt:
+                    peerdata['client_transport_encrypt'] = True
+
+                peer = Peer(pname, **peerdata)
                 self._peers[peer.name] = {
                     "peer": peer,
                     "pull_in_progress": False
@@ -58,7 +102,7 @@ class SyncApp(object):
         l.start(self._pull_period)
 
     def make_service(self):
-        return Peer.make_service(self._interface, self._port, self._client_connected)
+        return Peer.make_service(self._endpoint_data, self._client_connected)
 
     def _client_connected(self, conn):
         log.msg("New client connected")

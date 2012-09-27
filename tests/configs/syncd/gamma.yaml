@@ -1,7 +1,11 @@
+transport-encrypt: true
+
 server:
     name: gamma
     interface: 127.0.0.1
     port: 1102
+    private-key: ./tests/configs/syncd/cert/gamma.key
+    cert: ./tests/configs/syncd/cert/gamma.pem
 
 database:
     dbenv_homedir: ./tests/databases/gamma

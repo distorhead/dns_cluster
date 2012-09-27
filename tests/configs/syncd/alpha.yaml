@@ -1,7 +1,12 @@
+#transport-encrypt: (true|false)
+#peer-auth: (none|pap|chap)
+
 server:
     name: alpha
     interface: 127.0.0.1
     port: 1100
+    #private-key: ...
+    #cert: ...
 
 database:
     dbenv_homedir: ./tests/databases/alpha
@@ -11,7 +16,9 @@ peers:
     beta:
         host: 127.0.0.1
         port: 1101
+        #cert: ...
 
     gamma:
         host: 127.0.0.1
         port: 1102
+        #cert: ...

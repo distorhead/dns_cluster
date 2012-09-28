@@ -19,6 +19,12 @@ class EventStorage(object):
         if not event in self._allowed_events:
             raise EventError("Event '{0}' is not defined".format(event))
 
+    def add_allowed_event(self, event):
+        self._allowed_events.add(event)
+
+    def del_allowed_event(self, event):
+        self._allowed_events.remove(event)
+
     def register_event(self, event):
         """
         Register event named by string.

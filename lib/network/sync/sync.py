@@ -33,7 +33,7 @@ class IProtocol(Interface):
 
 class IService(Interface):
     """
-    Class responsible for messages 
+    Class responsible for message protocol, message handling, logic state tracking.
     """
 
     def handle_message(self, msg):

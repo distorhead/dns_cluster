@@ -2,22 +2,28 @@
 
 from twisted.python import log
 from zope.interface import implements
+
 from lib.network.sync.sync import IService, IProtocol
 from lib.event_storage import EventStorage
+from lib.enum import Enum
+from lib.glossary import Glossary
 
 
 class Protocol:
-    class Status:
-        OK = 0
-        NO_POSITION = 1
-        FORBIDDEN = 2
+    Status = Glossary(OK = 0,
+                      NO_POSITION = 1,
+                      FORBIDDEN = 2)
 
-    class Cmd:
-        IDENT = "ident"
-        PULL_REQUEST = "pull_request" 
-        ACTIONS = "actions"
-        WAIT = "wait"
-        #TODO: PING cmd
+    AuthSchema = Glossary(PAP = "pap",
+                          CHAP = "chap")
+
+    Cmd = Glossary(AUTH_REQUEST = "auth_request",
+                   AUTH_RESPONSE = "auth_response",
+                   AUTH_CHALLENGE = "auth_challenge",
+                   PULL_REQUEST = "pull_request",
+                   ACTIONS = "actions",
+                   WAIT = "wait",
+                   PING = "ping")
 
 
 class SyncService(object):
@@ -27,37 +33,20 @@ class SyncService(object):
         self.protocol = None
         self.peer = None
         self._state = None
-        self._state_watchdog_timeout = kwargs.get("state_watchdog_timeout", 30.0)
-        self._state_watchdog_timer = None
-        #TODO: remove this
-        #self._reset_state_watchdog_timer()
-
-    #def _reset_state_watchdog_timer(self):
-        #self._cancel_state_watchdog_timer()
-        #self._state_watchdog_timer = reactor.callLater(
-                #self._state_watchdog_timeout,
-                #self._reset_state)
-
-    #def _cancel_state_watchdog_timer(self):
-        #if not self._state_watchdog_timer is None:
-            #if self._state_watchdog_timer.active():
-                #self._state_watchdog_timer.cancel()
-            #self._state_watchdog_timer = None
-
-    #def _reset_state(self):
-        #log.msg("Resetting connection state on watchdog timer ({0})".format(self))
-        #self._state = self.State.NORMAL
 
     def _handle_cmd(self, cmd, msg):
-        assert 0, "Message handler doesn't implemented"
+        if cmd in Protocol.Cmd:
+            handler_name = "_handle_cmd_{}".format(cmd)
+            if hasattr(self, handler_name):
+                handler = getattr(self, handler_name)
+                handler(msg)
+            else:
+                log.msg("Cmd '{}' is not allowed".format(cmd))
+        else:
+            log.msg("Unknown cmd '{}', ignoring".format(cmd))
 
     def _allowed_state(self, *allowed_states):
         return self._state in allowed_states
-
-    #TODO: remove this
-    #def _errback(self, failure, desc):
-        #log.err(desc)
-        #log.err(failure)
 
     def set_protocol(self, protocol):
         self.protocol = IProtocol(protocol)
@@ -90,41 +79,59 @@ class SyncService(object):
 
 
 class SyncClient(SyncService):
-    class State:
-        CONNECTED = 0
-        IDENT_SENT = 1
-        IDENTIFIED = 2
-        PULL_REQ_SENT = 3
-        WAIT = 4
+    State = Enum('CONNECTED',
+                 'AUTH_REQUEST_SENT',
+                 'AUTH_CHALLENGE_RECEIVED',
+                 'AUTH_CHALLENGE_SENT',
+                 'OPERATIONAL',
+                 'PULL_REQUEST_SENT',
+                 'WAIT')
 
     def __init__(self, **kwargs):
         SyncService.__init__(self, **kwargs)
         self._state = self.State.CONNECTED
-        self._es = EventStorage('actions_received', 'ident_response')
+        self._es = EventStorage('actions_received',
+                                'auth_challenge',
+                                'auth_response')
         self.peer = None
 
-    def _handle_cmd_ident(self, msg):
-        if self._allowed_state(self.State.IDENT_SENT):
+    def _handle_cmd_auth_response(self, msg):
+        if self._allowed_state(self.State.AUTH_REQUEST_SENT,
+                               self.State.AUTH_CHALLENGE_SENT):
             if not msg.has_key("status"):
                 return
 
             if msg["status"] == Protocol.Status.OK:
-                log.msg("Identification response - OK")
-                self._state = self.State.IDENTIFIED
+                log.msg("Authentication response - OK")
+                self._state = self.State.OPERATIONAL
 
-                d = self._es.retrieve_event('ident_response')
+                d = self._es.retrieve_event('auth_response')
                 if not d is None:
                     d.callback(True)
 
             elif msg["status"] == Protocol.Status.FORBIDDEN:
-                log.msg("Identification response - FORBIDDEN")
+                log.msg("Authentication response - FORBIDDEN")
                 self._state = self.State.CONNECTED
-                d = self._es.retrieve_event('ident_response')
+
+                d = self._es.retrieve_event('auth_response')
                 if not d is None:
                     d.callback(False)
 
+    def _handle_cmd_auth_challenge(self, msg):
+        if self._allowed_state(self.State.AUTH_REQUEST_SENT):
+            if not msg.has_key("challenge"):
+                return
+
+            log.msg("Authentication challenge received")
+
+            self._state = self.State.AUTH_CHALLENGE_RECEIVED
+
+            d = self._es.retrieve_event('auth_challenge')
+            if not d is None
+                d.callback(msg["challenge"])
+
     def _handle_cmd_actions(self, msg):
-        if self._allowed_state(self.State.PULL_REQ_SENT, self.State.WAIT):
+        if self._allowed_state(self.State.PULL_REQUEST_SENT, self.State.WAIT):
             if not msg.has_key("status"):
                 return
 
@@ -134,89 +141,131 @@ class SyncClient(SyncService):
                     if act_desc.has_key("action") and act_desc.has_key("position"):
                         valid_actions.append(act_desc)
 
-                self._state = self.State.IDENTIFIED
+                self._state = self.State.OPERATIONAL
                 d = self._es.retrieve_event('actions_received')
                 if not d is None:
                     d.callback(valid_actions)
 
             elif msg["status"] == Protocol.Status.NO_POSITION:
-                self._state = self.State.IDENTIFIED
+                self._state = self.State.OPERATIONAL
                 d = self._es.retrieve_event('actions_received')
                 if not d is None:
                     d.callback(None)
 
     def _handle_cmd_wait(self, msg):
-        if self._allowed_state(self.State.PULL_REQ_SENT,
+        if self._allowed_state(self.State.PULL_REQUEST_SENT,
                                self.State.WAIT):
             log.msg("Waiting action from peer '{0}'".format(self.peer.name))
             self._state = self.State.WAIT
 
-    def _handle_cmd(self, cmd, msg):
-        if cmd == Protocol.Cmd.IDENT:
-            self._handle_cmd_ident(msg)
-        elif cmd == Protocol.Cmd.ACTIONS:
-            self._handle_cmd_actions(msg)
-        elif cmd == Protocol.Cmd.WAIT:
-            self._handle_cmd_wait(msg)
-        else:
-            log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
 
     def register_event(self, event):
         return self._es.register_event(event)
 
     def send_pull_request(self, position):
-        if self._allowed_state(self.State.IDENTIFIED):
+        if self._allowed_state(self.State.OPERATIONAL):
             log.msg("Requesting pull from peer '{0}'".format(self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.PULL_REQUEST,
                 "position": position
             }
             self.send_message(msg)
-            self._state = self.State.PULL_REQ_SENT
+            self._state = self.State.PULL_REQUEST_SENT
 
-    def send_ident(self, name):
+    def send_auth_pap(self, name, pswd):
         if self._allowed_state(self.State.CONNECTED):
-            log.msg("Sending identification info to peer '{0}'".format(
+            log.msg("Sending authentication info to peer '{}'".format(
                         self.peer.name))
             msg = {
-                "cmd": Protocol.Cmd.IDENT,
+                "cmd": Protocol.Cmd.AUTH_REQUEST,
+                "auth_schema": Protocol.AuthSchema.PAP
+                "name": name,
+                "pswd": pswd
+            }
+            self.send_message(msg)
+            self._state = self.State.AUTH_REQUEST_SENT
+
+    def send_auth_chap(self, name):
+        if self._allowed_state(self.State.CONNECTED):
+            log.msg("Sending authentication info to peer '{}'".format(
+                        self.peer.name))
+            msg = {
+                "cmd": Protocol.Cmd.AUTH_REQUEST,
+                "auth_schema": Protocol.AuthSchema.CHAP,
                 "name": name
             }
             self.send_message(msg)
-            self._state = self.State.IDENT_SENT
+            self._state = self.State.AUTH_REQUEST_SENT
 
-    def is_identified(self):
-        return self._state == self.State.IDENTIFIED
+    def send_auth_chap_challenge(self, challenge):
+        if self._allowed_state(self.State.AUTH_CHALLENGE_RECEIVED):
+            log.msg("Sending authentication challenge to peer '{}'".format(
+                        self.peer.name))
+            msg = {
+                "cmd": Protocol.Cmd.AUTH_CHALLENGE,
+                "challenge": challenge
+            }
+            self.send_message(msg)
+            self._state = self.State.AUTH_CHALLENGE_SENT
+
+    def is_authenticated(self):
+        return self._state == self.State.OPERATIONAL
 
 
 class SyncServer(SyncService):
-    class State:
-        CONNECTED = 0
-        IDENT_RECEIVED = 1
-        IDENTIFIED = 2
-        PULL_REQ_RECEIVED = 3
-        WAIT_SENT = 4
+    State = Enum('CONNECTED',
+                 'AUTH_REQUEST_RECEIVED',
+                 'AUTH_CHALLENGE_SENT',
+                 'AUTH_CHALLENGE_RECEIVED',
+                 'OPERATIONAL',
+                 'PULL_REQUEST_RECEIVED',
+                 'WAIT_SENT')
 
     def __init__(self, **kwargs):
         SyncService.__init__(self, **kwargs)
+
         self._state = self.State.CONNECTED
         self._es = EventStorage('pull_request',
-                                'ident_request')
+                                'auth_request_pap',
+                                'auth_request_chap',
+                                'auth_challenge')
         self.peer = None
-        #TODO: watchdog timer to reset states
 
-    def _handle_cmd_ident(self, msg):
+    def _handle_cmd_auth_request(self, msg):
         if self._allowed_state(self.State.CONNECTED):
-            if not msg.has_key("name"):
+            if not msg.has_key("auth_schema") or not msg.has_key("name"):
                 return
 
-            self._state = self.State.IDENT_RECEIVED
-            d = self._es.retrieve_event('ident_request')
+            if msg["auth_schema"] == Protocol.AuthSchema.PAP:
+                if not msg.has_key("pswd"):
+                    return
+
+                self._state = self.State.AUTH_REQUEST_RECEIVED
+                d = self._es.retrieve_event('auth_request_pap')
+                if not d is None:
+                    d.callback(msg["name"], msg["pswd"])
+
+            elif msg["auth_schema"] == Protocol.AuthSchema.CHAP:
+                self._state = self.State.AUTH_REQUEST_RECEIVED
+                d = self._es.retrieve_event('auth_request_chap')
+                if not d is None:
+                    d.callback(msg["name"])
+
+            else:
+                log.msg("Unknown auth schema '{}'".format(msg["auth_schema"]))
+
+    def _handle_cmd_auth_challenge(self, msg):
+        if self._allowed_state(self.State.AUTH_CHALLENGE_SENT):
+            if not msg.has_key("challenge"):
+                return
+
+            self._state = self.State.AUTH_CHALLENGE_RECEIVED
+            d = self._es.retrieve_event('auth_challenge')
             if not d is None:
-                d.callback(msg["name"])
+                d.callback(msg["challenge"])
 
     def _handle_cmd_pull_request(self, msg):
-        if self._allowed_state(self.State.IDENTIFIED):
+        if self._allowed_state(self.State.OPERATIONAL):
             if not msg.has_key("position"):
                 return
 
@@ -227,34 +276,27 @@ class SyncServer(SyncService):
                          self.peer.name))
                 return
 
-            self._state = self.State.PULL_REQ_RECEIVED
+            self._state = self.State.PULL_REQUEST_RECEIVED
             d = self._es.retrieve_event('pull_request')
             if not d is None:
                 d.callback(pos)
 
-    def _handle_cmd(self, cmd, msg):
-        if cmd == Protocol.Cmd.IDENT:
-            self._handle_cmd_ident(msg)
-        elif cmd == Protocol.Cmd.PULL_REQUEST:
-            self._handle_cmd_pull_request(msg)
-        else:
-            log.msg("Unknown cmd '{0}', unable to handle".format(cmd))
 
     def register_event(self, event):
         return self._es.register_event(event)
 
     def send_no_position(self):
-        if self._allowed_state(self.State.PULL_REQ_RECEIVED):
+        if self._allowed_state(self.State.PULL_REQUEST_RECEIVED):
             log.msg("Sending no position to peer '{0}'".format(self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.ACTIONS,
                 "status": Protocol.Status.NO_POSITION
             }
             self.send_message(msg)
-            self._state = self.State.IDENTIFIED
+            self._state = self.State.OPERATIONAL
 
     def send_actions(self, actions):
-        if self._allowed_state(self.State.PULL_REQ_RECEIVED, self.State.WAIT_SENT):
+        if self._allowed_state(self.State.PULL_REQUEST_RECEIVED, self.State.WAIT_SENT):
             log.msg("Sending actions to peer '{0}'".format(self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.ACTIONS,
@@ -262,10 +304,10 @@ class SyncServer(SyncService):
                 "data": actions
             }
             self.send_message(msg)
-            self._state = self.State.IDENTIFIED
+            self._state = self.State.OPERATIONAL
 
     def send_wait(self):
-        if self._allowed_state(self.State.PULL_REQ_RECEIVED):
+        if self._allowed_state(self.State.PULL_REQUEST_RECEIVED):
             log.msg("Sending wait to peer '{0}'".format(self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.WAIT,
@@ -273,25 +315,39 @@ class SyncServer(SyncService):
             self.send_message(msg)
             self._state = self.State.WAIT_SENT
 
-    def send_ident_success(self):
-        if self._allowed_state(self.State.IDENT_RECEIVED):
+    def send_auth_success(self):
+        if self._allowed_state(self.State.AUTH_REQUEST_RECEIVED,
+                               self.State.AUTH_CHALLENGE_RECEIVED):
             ra = self.remote_addr()
-            log.msg("Sending identification success to '{0}:{1}'".format(
+            log.msg("Sending auth success to '{}:{}'".format(
                         ra.host, ra.port))
             msg = {
-                "cmd": Protocol.Cmd.IDENT,
+                "cmd": Protocol.Cmd.AUTH_RESPONSE,
                 "status": Protocol.Status.OK
             }
             self.send_message(msg)
-            self._state = self.State.IDENTIFIED
+            self._state = self.State.OPERATIONAL
 
-    def send_ident_fail(self):
-        if self._allowed_state(self.State.IDENT_RECEIVED):
+    def send_auth_challenge(self, challenge):
+        if self._allowed_state(self.State.AUTH_REQUEST_RECEIVED):
             ra = self.remote_addr()
-            log.msg("Sending identification failure to '{0}:{1}'".format(
+            log.msg("Sending auth challenge to '{}:{}'".format(
                         ra.host, ra.port))
             msg = {
-                "cmd": Protocol.Cmd.IDENT,
+                "cmd": Protocol.Cmd.AUTH_CHALLENGE,
+                "challenge": challenge
+            }
+            self.send_message(msg)
+            self._state = self.State.AUTH_CHALLENGE_SENT
+
+    def send_auth_fail(self):
+        if self._allowed_state(self.State.AUTH_REQUEST_RECEIVED,
+                               self.State.AUTH_CHALLENGE_RECEIVED):
+            ra = self.remote_addr()
+            log.msg("Sending auth failure to '{}:{}'".format(
+                        ra.host, ra.port))
+            msg = {
+                "cmd": Protocol.Cmd.AUTH_RESPONSE,
                 "status": Protocol.Status.FORBIDDEN
             }
             self.send_message(msg)

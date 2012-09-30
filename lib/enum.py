@@ -21,8 +21,5 @@ class Enum(object):
     def __contains__(self, sym):
         return sym in self._symbols
 
-    def symbols(self):
-        return self._symbols
-
 
 # vim:sts=4:ts=4:sw=4:expandtab:

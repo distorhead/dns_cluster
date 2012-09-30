@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 
+import random
+import hashlib
+
 from lib import database
 from lib.action import Action, ActionError
 from lib.network.sync.peer import Peer
@@ -29,8 +32,8 @@ class SyncApp(object):
         raise SyncAppError("Configuration failure: {}".format(msg))
 
     @classmethod
-    def required_key(cls, d, key, msg):
-        return retrieve_key(d, key, failure_func=cls.cfg_failure, failure_msg=msg)
+    def required_key(cls, cfg, key, msg):
+        return retrieve_key(cfg, key, failure_func=cls.cfg_failure, failure_msg=msg)
 
     def __init__(self, cfg, db, action_journal, **kwargs):
         srv = self.required_key(cfg, 'server', "server config section required")
@@ -76,12 +79,24 @@ class SyncApp(object):
 
                     'client_port': self.required_key(pdesc, 'port',
                             "port required for peer '{}'".format(pname)),
+
+                    'client_auth_schema': pdesc.get('auth', "chap")
                 }
+
+                if peerdata['client_auth_schema'] not in ("pap", "chap"):
+                    raise self.cfg_failure("unknown value '{}' for auth option "
+                                           "for peer '{}': "
+                                           "allowed 'pap' or 'chap'".format(
+                                           peerdata['client_auth_schema'],
+                                           pname))
 
                 if transport_encrypt:
                     peerdata['client_transport_encrypt'] = True
 
-                peer = Peer(pname, **peerdata)
+                pkey = self.required_key(pdesc, 'key', "key required for peer "
+                                         "'{}'".format(pname))
+
+                peer = Peer(pname, pkey, **peerdata)
                 self._peers[peer.name] = {
                     "peer": peer,
                     "pull_in_progress": False
@@ -96,36 +111,127 @@ class SyncApp(object):
         log.err(failure)
 
 
+    def _setup_client_auth_request_pap_handler(self, service):
+        d = service.register_event('auth_request_pap')
+        d.addCallback(self._client_auth_request_pap_handler, service)
+
+    def _setup_client_auth_request_chap_handler(self, service):
+        d = service.register_event('auth_request_chap')
+        d.addCallback(self._client_auth_request_chap_handler, service)
+
+    def _setup_client_pull_request_handler(self, peer):
+        d = peer.server.service.register_event('pull_request')
+        d.addCallback(self._client_pull_request_handler, peer)
+
+    def _setup_client_auth_challenge_handler(self, ch_res, service, peer):
+        d = service.register_event('auth_challenge')
+        d.addCallback(self._client_auth_challenge_handler, ch_res, service, peer)
+
+
+    def _setup_server_auth_response_handler(self, peer):
+        d = peer.client.service.register_event('auth_response')
+        d.addCallback(self._server_auth_response_handler, peer)
+
+    def _setup_server_auth_challenge_handler(self, peer):
+        d = peer.client.service.register_event('auth_challenge')
+        d.addCallback(self._server_auth_challenge_handler, peer)
+
+
+    def _calc_challenge_res(self, challenge, pkey):
+        return hashlib.md5(str(challenge) + str(pkey)).hexdigest()
+
 
     def start_pull(self):
         l = task.LoopingCall(self.pull)
         l.start(self._pull_period)
 
-    def make_service(self):
+    def make_service(self, cfg):
+        if cfg.has_key('accept-auth'):
+            if cfg['accept-auth'] == "pap":
+                self._pap_auth = True
+                self._chap_auth = False
+            elif cfg['accept-auth'] == "chap":
+                self._chap_auth = True
+                self._pap_auth = False
+            elif cfg['accept-auth'] == "any":
+                self._pap_auth = True
+                self._chap_auth = True
+            else:
+                raise self.cfg_failure("unknown value '{}' for accept-auth option: "
+                                       "allowed 'pap', 'chap', 'any'".format(
+                                            cfg['accept-auth']))
+        else:
+            self._chap_auth = True
+            self._pap_auth = False
+
         return Peer.make_service(self._endpoint_data, self._client_connected)
+
 
     def _client_connected(self, conn):
         log.msg("New client connected")
-        service = conn.service
-        d = service.register_event('ident_request')
-        d.addCallback(self._client_ident_request, service)
 
-    def _client_ident_request(self, name, service):
+        # new client connected, retrieve client-related service
+        #   (each client has own service object)
+        service = conn.service
+
+        if self._pap_auth:
+            self._setup_client_auth_request_pap_handler(service)
+
+        if self._chap_auth:
+            self._setup_client_auth_request_chap_handler(service)
+
+    def _client_auth_request_pap_handler(self, res, service):
+        name, pswd = res
         if not self._peers.has_key(name):
             # unknown peer name
-            service.send_ident_fail()
-            d = service.register_event('ident_request')
-            d.addCallback(self._client_ident_request, service)
+            service.send_auth_fail()
+            self._setup_client_auth_request_pap_handler(service)
 
         else:
-            peer = self._peers[name]["peer"]
+            peer = self._peers[name]['peer']
+            if peer.key == pswd:
+                peer.setup_server_connection(service.protocol)
+                service.send_auth_success()
+                self._setup_client_pull_request_handler(peer)
+
+            else:
+                service.send_auth_fail()
+                self._setup_client_auth_request_pap_handler(service)
+
+    def _client_auth_request_chap_handler(self, name, service):
+        if not self._peers.has_key(name):
+            service.send_auth_fail()
+            self._setup_client_auth_request_chap_handler(service)
+
+        else:
+            peer = self._peers[name]['peer']
+            
+            ch_len = random.randint(10, 100)
+            challenge = ""
+            while ch_len:
+                challenge += chr(random.randint(0, 255))
+                ch_len -= 1
+
+            ch_res = self._calc_challenge_res(challenge, peer.key)
+
+            service.send_auth_challenge(challenge)
+            self._setup_client_auth_challenge_handler(ch_res, service, peer)
+
+    def _client_auth_challenge_handler(self, client_ch_res, ch_res, service, peer):
+        # Method should link service (from which auth request received)
+        #   with desired peer.
+        if client_ch_res != ch_res:
+            # failed attempt
+            service.send_auth_fail()
+            self._setup_client_auth_request_chap_handler(service)
+        else:
+            # link service with peer
             peer.setup_server_connection(service.protocol)
-            service.send_ident_success()
-            d = service.register_event('pull_request')
-            d.addCallback(self._client_pull_request, peer)
+            service.send_auth_success()
+            self._setup_client_pull_request_handler(peer)
 
 
-    def _client_pull_request(self, position, peer):
+    def _client_pull_request_handler(self, position, peer):
         d = threads.deferToThread(self._do_retrieve_actions, position, peer)
         d.addCallback(self._actions_retrieved, position, peer)
         d.addErrback(self._errback, "Error while retrieving actions for peer "
@@ -158,8 +264,8 @@ class SyncApp(object):
             log.msg("No such position '{0}' needed for peer '{1}'".format(position,
                     peer.name))
             peer.server.service.send_no_position()
-            d = peer.server.service.register_event('pull_request')
-            d.addCallback(self._client_pull_request, peer)
+            self._setup_client_pull_request_handler(peer)
+
         else:
             cur_pos, actions = res
 
@@ -167,8 +273,7 @@ class SyncApp(object):
             if actions_len != 0:
                 log.msg("Actions for peer '{0}' retrieved".format(peer.name))
                 peer.server.service.send_actions(actions)
-                d = peer.server.service.register_event('pull_request')
-                d.addCallback(self._client_pull_request, peer)
+                self._setup_client_pull_request_handler(peer)
             else:
                 log.msg("Adding active peer '{0}' with position '{1}'".format(
                         peer.name, cur_pos))
@@ -190,6 +295,7 @@ class SyncApp(object):
             # Possibly it's better to add event 'connection_lost'
             #   to peer class
             if peer.client is None:
+                # connection lost, reset pull state
                 pdesc["pull_in_progress"] = False
 
             if not pdesc["pull_in_progress"]:
@@ -210,18 +316,27 @@ class SyncApp(object):
     def _peer_connected(self, connection, peer):
         log.msg("Connected to the peer '{0}'".format(peer.name))
 
-        if not peer.client.service.is_identified():
-            peer.client.service.send_ident(self._name)
-            d = peer.client.service.register_event('ident_response')
-            d.addCallback(self._on_ident_response, peer)
-        else:
+        if peer.client.service.is_authenticated():
             self._do_pull_request(peer)
 
-    def _on_ident_response(self, identified, peer):
-        if identified:
+        else:
+            if peer.client_auth_schema == "pap":
+                peer.client.service.send_auth_pap(self._name, peer.key)
+                self._setup_server_auth_response_handler(peer)
+            elif peer.client_auth_schema == "chap":
+                peer.client.service.send_auth_chap(self._name)
+                self._setup_server_auth_challenge_handler(peer)
+
+    def _server_auth_challenge_handler(self, challenge, peer):
+        ch_res = self._calc_challenge_res(challenge, peer.key)
+        peer.client.service.send_auth_challenge(ch_res)
+        self._setup_server_auth_response_handler(peer)
+
+    def _server_auth_response_handler(self, authenticated, peer):
+        if authenticated:
             self._do_pull_request(peer)
         else:
-            log.err("Unable to pull from peer '{0}': identification failed".format(
+            log.err("Unable to pull from peer '{}': authentication failed".format(
                         peer.name))
             self._peers[peer.name]["pull_in_progress"] = False
 
@@ -323,8 +438,7 @@ class SyncApp(object):
         else:
             log.msg("Got updates for peer '{0}'".format(peer.name))
             peer.server.service.send_actions(actions)
-            d = peer.server.service.register_event('pull_request')
-            d.addCallback(self._client_pull_request, peer)
+            self._setup_client_pull_request_handler(peer)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

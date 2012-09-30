@@ -16,6 +16,7 @@ from lib.actions import *
 
 CONFIG_DEFAULT = {
     "transport-encrypt": False,
+    "accept-auth": "chap",
 
     "database": {
         "dbenv_homedir": "/var/lib/bind",
@@ -99,7 +100,7 @@ class SyncServiceMaker(object):
 
         signal.signal(signal.SIGUSR2, self._sighandler)
         self._sa.start_pull()
-        return self._sa.make_service()
+        return self._sa.make_service(cfg)
 
 
 sync_service_maker = SyncServiceMaker()

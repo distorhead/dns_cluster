@@ -31,16 +31,18 @@ class Peer(object):
         twisted_service = strports.service(endpoint_spec, f)
         return twisted_service
 
-    def __init__(self, name, **kwargs):
+    def __init__(self, name, key, **kwargs):
         """
         Create new peer with name 'name'. 'host' and 'port' 
           used for establishing client connection.
         """
 
         self.name = name
+        self.key = key
         self.client_host = kwargs.get('client_host', None)
         self.client_port = kwargs.get('client_port', None)
         self.client_transport_encrypt = kwargs.get('client_transport_encrypt', False)
+        self.client_auth_schema = kwargs.get('client_auth_schema', "chap")
         self.client = None
         self.server = None
 

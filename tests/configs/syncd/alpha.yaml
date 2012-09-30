@@ -1,5 +1,5 @@
 transport-encrypt: true
-#peer-auth: (none|pap|chap)
+accept-auth: chap
 
 server:
     name: alpha
@@ -14,9 +14,11 @@ database:
 
 peers:
     beta:
+        key: "topsecret"
         host: 127.0.0.1
         port: 1101
 
     gamma:
+        key: "topsecret2"
         host: 127.0.0.1
         port: 1102

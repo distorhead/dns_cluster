@@ -127,7 +127,7 @@ class SyncClient(SyncService):
             self._state = self.State.AUTH_CHALLENGE_RECEIVED
 
             d = self._es.retrieve_event('auth_challenge')
-            if not d is None
+            if not d is None:
                 d.callback(msg["challenge"])
 
     def _handle_cmd_actions(self, msg):
@@ -174,11 +174,11 @@ class SyncClient(SyncService):
 
     def send_auth_pap(self, name, pswd):
         if self._allowed_state(self.State.CONNECTED):
-            log.msg("Sending authentication info to peer '{}'".format(
+            log.msg("Sending auth info to peer '{}'".format(
                         self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.AUTH_REQUEST,
-                "auth_schema": Protocol.AuthSchema.PAP
+                "auth_schema": Protocol.AuthSchema.PAP,
                 "name": name,
                 "pswd": pswd
             }
@@ -187,7 +187,7 @@ class SyncClient(SyncService):
 
     def send_auth_chap(self, name):
         if self._allowed_state(self.State.CONNECTED):
-            log.msg("Sending authentication info to peer '{}'".format(
+            log.msg("Sending auth info to peer '{}'".format(
                         self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.AUTH_REQUEST,
@@ -197,9 +197,9 @@ class SyncClient(SyncService):
             self.send_message(msg)
             self._state = self.State.AUTH_REQUEST_SENT
 
-    def send_auth_chap_challenge(self, challenge):
+    def send_auth_challenge(self, challenge):
         if self._allowed_state(self.State.AUTH_CHALLENGE_RECEIVED):
-            log.msg("Sending authentication challenge to peer '{}'".format(
+            log.msg("Sending auth challenge to peer '{}'".format(
                         self.peer.name))
             msg = {
                 "cmd": Protocol.Cmd.AUTH_CHALLENGE,
@@ -243,7 +243,7 @@ class SyncServer(SyncService):
                 self._state = self.State.AUTH_REQUEST_RECEIVED
                 d = self._es.retrieve_event('auth_request_pap')
                 if not d is None:
-                    d.callback(msg["name"], msg["pswd"])
+                    d.callback((msg["name"], msg["pswd"]))
 
             elif msg["auth_schema"] == Protocol.AuthSchema.CHAP:
                 self._state = self.State.AUTH_REQUEST_RECEIVED

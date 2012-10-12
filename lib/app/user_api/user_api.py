@@ -76,6 +76,9 @@ class UserApiApp(object):
         self.add_database_change_resource(
             root, 'commit_session', CommitSessionResource(self._sp)
         )
+        self.add_database_change_resource(
+            root, 'mod_auth', ModAuthResource(self._sp)
+        )
 
         factory = server.Site(root)
         twisted_service = strports.service(endpoint_spec, factory)

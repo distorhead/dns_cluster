@@ -2,14 +2,13 @@
 
 from lib.operations.session_operation import SessionOperation
 from lib.operations.operation_helpers import OperationHelpersMixin
-from lib.actions.add_arena import AddArena
-from lib.actions.del_arena import DelArena
+from lib.actions.mod_auth import ModAuth
 
 
-__all__ = ['DelArenaOp']
+__all__ = ['ModAuthOp']
 
 
-class DelArenaOp(SessionOperation, OperationHelpersMixin):
+class ModAuthOp(SessionOperation, OperationHelpersMixin):
     def __init__(self, **kwargs):
         SessionOperation.__init__(self, **kwargs)
         self._kwargs = kwargs
@@ -20,10 +19,12 @@ class DelArenaOp(SessionOperation, OperationHelpersMixin):
         database_srv = service_provider.get('database')
 
         # validation of arguments also goes here
-        do_action = DelArena(**self._kwargs)
+        do_action = ModAuth(**self._kwargs)
 
-        # retrieve arena key from database needed for undo action
-        auth_data = self.get_auth_data(database_srv, do_action.arena, txn)
+        self._check_access(service_provider, sessid, session_data, do_action, txn)
+
+        # retrieve old key from database needed for undo action
+        auth_data = self.get_auth_data(database_srv, do_action.target, txn)
         if not auth_data is None:
             key = auth_data['key']
         else:
@@ -32,13 +33,9 @@ class DelArenaOp(SessionOperation, OperationHelpersMixin):
             #   so reset key is the choise
             key = ""
 
-        undo_action = AddArena(arena=do_action.arena, key=key)
+        undo_action = ModAuth(target=do_action.target, key=key)
 
-        self._check_access(service_provider, sessid, session_data, do_action, txn)
-
-        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
-                                                     do_action.arena])
-        lock_srv.try_acquire(resource, sessid)
+        lock_srv.try_acquire(self.GLOBAL_RESOURCE, sessid)
 
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 

@@ -14,3 +14,4 @@ from get_zones import *
 from add_record import *
 from del_record import *
 from get_records import *
+from mod_auth import *

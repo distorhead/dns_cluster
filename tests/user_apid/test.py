@@ -115,10 +115,10 @@ class Test1(unittest.TestCase):
 
     def test1(self):
         arena_name = self.generate_str()
-        while arena_name in self.request("get_arenas?auth_arena=__admin__"):
+        while arena_name in self.request("get_arenas?auth_arena=__all__"):
             arena_name = self.generate_str()
-        self.request("add_arena?auth_arena=__admin__&arena={}".format(arena_name))
-        self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__admin__"))
+        self.request("add_arena?auth_arena=__all__&arena={}".format(arena_name))
+        self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__all__"))
 
         segment_name = self.generate_str()
         while segment_name in self.request("get_segments?auth_arena={}".format(arena_name)):
@@ -127,10 +127,10 @@ class Test1(unittest.TestCase):
         self.assertTrue(segment_name in self.request("get_segments?auth_arena={}".format(arena_name)))
 
         self.assertTrue(self.request("get_segments?auth_arena={}".format(arena_name)) ==
-                        self.request("get_segments?auth_arena=__admin__&arena={}".format(arena_name)))
+                        self.request("get_segments?auth_arena=__all__&arena={}".format(arena_name)))
 
         zone_name = self.generate_str()
-        while zone_name in self.request("get_zones?auth_arena=__admin__"):
+        while zone_name in self.request("get_zones?auth_arena=__all__"):
             zone_name = self.generate_str()
         self.request("add_zone?auth_arena={}&segment={}&zone={}".format(arena_name, segment_name, zone_name))
         zones = [spec['zone'] for spec in self.request("get_zones?auth_arena={}&segment={}".format(arena_name, segment_name))]
@@ -245,7 +245,7 @@ class Test1(unittest.TestCase):
         self.assertTrue(rec in recs)
 
     def test2(self):
-        sessid = self.request("begin_session?auth_arena=__admin__")['sessid']
+        sessid = self.request("begin_session?auth_arena=__all__")['sessid']
 
         arena_name = self.generate_str()
         while arena_name in self.request("get_arenas?sessid={}".format(sessid)):
@@ -377,7 +377,7 @@ class Test1(unittest.TestCase):
         self.request("commit_session?sessid={}".format(sessid))
 
     def test3(self):
-        sessid = self.request("begin_session?auth_arena=__admin__")['sessid']
+        sessid = self.request("begin_session?auth_arena=__all__")['sessid']
 
         arena_name = self.generate_str()
         while arena_name in self.request("get_arenas?sessid={}".format(sessid)):
@@ -386,10 +386,10 @@ class Test1(unittest.TestCase):
         self.assertTrue(arena_name in self.request("get_arenas?sessid={}".format(sessid)))
 
         self.request("rollback_session?sessid={}".format(sessid))
-        self.assertTrue(not arena_name in self.request("get_arenas?auth_arena=__admin__"))
+        self.assertTrue(not arena_name in self.request("get_arenas?auth_arena=__all__"))
 
     def test4(self):
-        sessid = self.request("begin_session?auth_arena=__admin__")['sessid']
+        sessid = self.request("begin_session?auth_arena=__all__")['sessid']
 
         arena_name = self.generate_str()
         while arena_name in self.request("get_arenas?sessid={}".format(sessid)):
@@ -398,7 +398,7 @@ class Test1(unittest.TestCase):
         self.assertTrue(arena_name in self.request("get_arenas?sessid={}".format(sessid)))
 
         self.request("commit_session?sessid={}".format(sessid))
-        self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__admin__"))
+        self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__all__"))
 
     def runTest(self):
         self.test1()

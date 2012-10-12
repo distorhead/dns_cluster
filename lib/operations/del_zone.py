@@ -28,8 +28,11 @@ class DelZoneOp(SessionOperation, OperationHelpersMixin):
 
         # retrieve zone arena and segment needed for undo action and lock
         zone_data = self.get_zone_data(database_srv, do_action.zone, txn)
-        arena = zone_data['arena']
-        segment = zone_data['segment']
+        if not zone_data is None:
+            arena = zone_data['arena']
+            segment = zone_data['segment']
+        else:
+            arena = segment = ""
 
         undo_action = AddZone(arena=arena,
                               segment=segment,

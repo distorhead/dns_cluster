@@ -14,3 +14,4 @@ from begin_session import *
 from commit_session import *
 from rollback_session import *
 from keepalive_session import *
+from mod_auth import *

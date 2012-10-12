@@ -25,8 +25,11 @@ class GetRecordsOp(SessionOperation, OperationHelpersMixin):
 
         # retrieve arena and segment needed for lock resource
         zone_data = self.get_zone_data(database_srv, do_action.zone, txn)
-        arena = zone_data['arena']
-        segment = zone_data['segment']
+        if not zone_data is None:
+            arena = zone_data['arena']
+            segment = zone_data['segment']
+        else:
+            arena = segment = ""
 
         # construct and lock resource
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,

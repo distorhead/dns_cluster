@@ -22,3 +22,4 @@ from add_record_srv import *
 from del_record_srv import *
 from add_record_txt import *
 from del_record_txt import *
+from mod_auth import *

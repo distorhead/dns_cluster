@@ -512,7 +512,16 @@ class OperationHelpersMixin(object):
         if adb.exists(arena, txn):
             return {
                 'arena': arena,
-                'key': adb.get(arena, '', txn)
+            }
+        else:
+            return None
+
+    def get_auth_data(self, database_srv, target, txn):
+        aadb = database_srv.dbpool().arena_auth.dbhandle()
+        if aadb.exists(target, txn):
+            return {
+                'target': target,
+                'key': aadb.get(target, '', txn)
             }
         else:
             return None

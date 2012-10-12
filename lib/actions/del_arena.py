@@ -4,6 +4,7 @@ from lib import database
 from lib.action import Action, ActionError
 from lib.dbstate import Dbstate
 from lib.defs import ADMIN_ARENA_NAME
+from lib import bdb_helpers
 
 
 __all__ = ['DelArena']
@@ -32,8 +33,7 @@ class DelArena(Action, Dbstate):
 
         if adb.exists(self.arena, txn):
             adb.delete(self.arena, txn)
-            delete(aadb, self.arena, txn)
-            aadb.delete(self)
+            bdb_helpers.delete(aadb, self.arena, txn)
         else:
             raise ActionError("unable to delete arena {}: "
                               "arena doesn't exist".format(self.desc()))

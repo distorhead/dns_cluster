@@ -39,6 +39,15 @@ class SyncApp(object):
         srv = self.required_key(cfg, 'server', "server config section required")
         self._name = self.required_key(srv, 'name', "server name required")
 
+        self._database = db
+        self._action_journal = action_journal
+        self._active_peers = []
+        self._peers = {}
+        self._dbpool = database.DatabasePool(self.DATABASES,
+                                             self._database.dbenv(),
+                                             self._database.dbfile())
+
+        self._pull_period = cfg.get('pull_period', 10.0)
         transport_encrypt = cfg.get('transport-encrypt', True)
 
         # initialize server endpoint data
@@ -57,14 +66,23 @@ class SyncApp(object):
                     "server cert field required "
                     "for transport encryption mode")
 
-        self._database = db
-        self._action_journal = action_journal
-        self._pull_period = kwargs.get('pull_period', 10.0)
-        self._active_peers = []
-        self._peers = {}
-        self._dbpool = database.DatabasePool(self.DATABASES,
-                                             self._database.dbenv(),
-                                             self._database.dbfile())
+        if cfg.has_key('accept-auth'):
+            if cfg['accept-auth'] == "pap":
+                self._pap_auth = True
+                self._chap_auth = False
+            elif cfg['accept-auth'] == "chap":
+                self._chap_auth = True
+                self._pap_auth = False
+            elif cfg['accept-auth'] == "any":
+                self._pap_auth = True
+                self._chap_auth = True
+            else:
+                raise self.cfg_failure("unknown value '{}' for accept-auth option: "
+                                       "allowed 'pap', 'chap', 'any'".format(
+                                            cfg['accept-auth']))
+        else:
+            self._chap_auth = True
+            self._pap_auth = False
 
         peers = self.required_key(cfg, 'peers', {})
 
@@ -80,10 +98,10 @@ class SyncApp(object):
                     'client_port': self.required_key(pdesc, 'port',
                             "port required for peer '{}'".format(pname)),
 
-                    'client_auth_schema': pdesc.get('auth', "chap")
+                    'client_auth_schema': pdesc.get('auth', 'chap')
                 }
 
-                if peerdata['client_auth_schema'] not in ("pap", "chap"):
+                if peerdata['client_auth_schema'] not in ('pap', 'chap'):
                     raise self.cfg_failure("unknown value '{}' for auth option "
                                            "for peer '{}': "
                                            "allowed 'pap' or 'chap'".format(
@@ -98,8 +116,8 @@ class SyncApp(object):
 
                 peer = Peer(pname, pkey, **peerdata)
                 self._peers[peer.name] = {
-                    "peer": peer,
-                    "pull_in_progress": False
+                    'peer': peer,
+                    'pull_in_progress': False
                 }
 
                 if not pdb.exists(pname, txn):
@@ -145,25 +163,7 @@ class SyncApp(object):
         l = task.LoopingCall(self.pull)
         l.start(self._pull_period)
 
-    def make_service(self, cfg):
-        if cfg.has_key('accept-auth'):
-            if cfg['accept-auth'] == "pap":
-                self._pap_auth = True
-                self._chap_auth = False
-            elif cfg['accept-auth'] == "chap":
-                self._chap_auth = True
-                self._pap_auth = False
-            elif cfg['accept-auth'] == "any":
-                self._pap_auth = True
-                self._chap_auth = True
-            else:
-                raise self.cfg_failure("unknown value '{}' for accept-auth option: "
-                                       "allowed 'pap', 'chap', 'any'".format(
-                                            cfg['accept-auth']))
-        else:
-            self._chap_auth = True
-            self._pap_auth = False
-
+    def make_service(self):
         return Peer.make_service(self._endpoint_data, self._client_connected)
 
 

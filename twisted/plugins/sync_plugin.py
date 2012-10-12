@@ -96,11 +96,11 @@ class SyncServiceMaker(object):
                                 "'{}'".format(val));
 
         sp = ServiceProvider(init_srv=True, cfg=cfg)
-        self._sa = SyncApp(cfg, sp.get("database"), sp.get("action_journal"))
+        self._sa = SyncApp(cfg, sp.get('database'), sp.get('action_journal'))
 
         signal.signal(signal.SIGUSR2, self._sighandler)
         self._sa.start_pull()
-        return self._sa.make_service(cfg)
+        return self._sa.make_service()
 
 
 sync_service_maker = SyncServiceMaker()

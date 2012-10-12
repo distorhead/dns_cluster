@@ -3,6 +3,7 @@
 from lib import database
 from lib.action import Action, ActionError
 from lib.dbstate import Dbstate
+from lib.defs import ADMIN_ARENA_NAME
 
 
 __all__ = ['DelArena']
@@ -13,6 +14,9 @@ class DelArena(Action, Dbstate):
     def __init__(self, **kwargs):
         super(DelArena, self).__init__(**kwargs)
         self.arena = self.required_data_by_key(kwargs, 'arena', str)
+
+        if self.arena == ADMIN_ARENA_NAME:
+            raise ActionError("arena name '{}' is not allowed".format(self.arena))
 
     def _current_dbstate(self, database, txn):
         return self.get_global(database, txn)

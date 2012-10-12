@@ -4,6 +4,7 @@ from lib.operation import OperationError
 from lib.actions import *
 from lib.actions.record import RecordAction
 from lib.common import split, reorder
+from lib.defs import ADMIN_ARENA_NAME
 from lib import bdb_helpers
 
 
@@ -544,7 +545,7 @@ class OperationHelpersMixin(object):
         return False
 
     def is_admin(self, session_data):
-        return session_data['arena'] == '__all__'
+        return session_data['arena'] == ADMIN_ARENA_NAME
 
     def has_access_to_zone(self, database_srv, zone, session_data, txn=None):
         arena = session_data['arena']

@@ -57,7 +57,7 @@ class Test1(unittest.TestCase):
             len -= 1
         return res
 
-    def request(self, path):
+    def request_raw_resp(self, path):
         url = self.server['url'] + '/' + path
         self.log("request: {}", url)
         resp = urllib2.urlopen(url)
@@ -66,6 +66,10 @@ class Test1(unittest.TestCase):
 
         if not isinstance(resp_msg, dict) or not resp_msg.has_key('status'):
             raise TestError("Request to '{}' returns bad yaml answer: '{}'".format(resp_raw))
+        return resp_msg
+
+    def request(self, path):
+        resp_msg = self.request_raw_resp(path)
 
         if resp_msg['status'] != 200:
             if not resp_msg.has_key('error'):

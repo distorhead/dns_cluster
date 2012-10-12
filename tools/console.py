@@ -21,6 +21,7 @@ from lib.operations import *
 from lib.action import Action
 from lib.dbstate import Dbstate
 from lib.app.sync.sync import SyncApp
+from lib.defs import ADMIN_ARENA_NAME
 
 
 # Define some helper functions
@@ -98,7 +99,7 @@ cfg = {
 }
 
 args = sys.argv[1:]
-optlist, _ = getopt.getopt(args, "pc:")
+optlist, _ = getopt.getopt(args, "fpc:")
 options = dict(optlist)
 
 if options.has_key("-c"):
@@ -109,7 +110,6 @@ if options.has_key("-c"):
         top_mod = getattr(top_mod, mod)
 
     cfg = top_mod.cfg
-
 
 if options.has_key("-p"):
     purge_db(cfg["database"]["dbenv_homedir"])
@@ -149,6 +149,10 @@ s_sadb = session.dbpool().session_action.dbhandle()
 
 dbstate = Dbstate()
 
+
+if options.has_key("-f"):
+    print "Setting empty password for account '{}'".format(ADMIN_ARENA_NAME)
+    aadb.put(ADMIN_ARENA_NAME, '')
 
 
 

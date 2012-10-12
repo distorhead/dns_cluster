@@ -12,7 +12,7 @@ class GetZonesResource(OperationResource):
     @request_handler
     def render_GET(self, request):
         kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
-                                          'auth_key' 'arena', 'segment')
+                                          'auth_key', 'arena', 'segment')
         operation = GetZonesOp(**kwargs)
 
         d = self.run_operation(operation, request)

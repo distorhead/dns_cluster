@@ -24,7 +24,7 @@ class GetRecordsOp(SessionOperation, OperationHelpersMixin):
         self._check_access(service_provider, sessid, session_data, None, txn)
 
         # retrieve arena and segment needed for lock resource
-        zone_data = self.get_zone_data(database_srv, do_action.zone, txn)
+        zone_data = self.get_zone_data(database_srv, self.zone, txn)
         if not zone_data is None:
             arena = zone_data['arena']
             segment = zone_data['segment']

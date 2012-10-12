@@ -35,7 +35,9 @@ class ModAuthOp(SessionOperation, OperationHelpersMixin):
 
         undo_action = ModAuth(target=do_action.target, key=key)
 
-        lock_srv.try_acquire(self.GLOBAL_RESOURCE, sessid)
+        resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
+                                                     do_action.target])
+        lock_srv.try_acquire(resource, sessid)
 
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 

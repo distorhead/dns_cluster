@@ -22,7 +22,7 @@ class SessionBeginOp(Operation, OperationHelpersMixin):
             self.check_authenticate(self.auth_arena, self.auth_key,
                                         database_srv, txn)
             sessid = session_srv.begin_session(self.auth_arena, txn=txn)
-            d = session_srv.set_watchdog(sessid)
+            d = session_srv.set_watchdog(sessid, txn=txn)
             d.addCallback(lambda x: lock_srv.release_session(sessid))
             return sessid
 

@@ -3,7 +3,7 @@
 from lib.operation import Operation
 
 
-__all__ = ["SessionCommitOp"]
+__all__ = ['SessionCommitOp']
 
 
 class SessionCommitOp(Operation):

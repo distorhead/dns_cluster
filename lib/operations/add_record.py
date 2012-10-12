@@ -5,7 +5,7 @@ from lib.operations.session_operation import SessionOperation
 from lib.operation import OperationError
 
 
-__all__ = ["AddRecordOp"]
+__all__ = ['AddRecordOp']
 
 
 class AddRecordOp(SessionOperation, OperationHelpersMixin):
@@ -29,7 +29,10 @@ class AddRecordOp(SessionOperation, OperationHelpersMixin):
         self._check_access(service_provider, sessid, session_data, do_action, txn)
 
         # retrieve zone arena and segment needed for lock
-        arena, segment = self.arena_segment_by_zone(database_srv, do_action.zone, txn)
+        zone_data = self.get_zone_data(database_srv, do_action.zone, txn)
+        arena = zone_data['arena']
+        segment = zone_data['segment']
+
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,
                                                      segment, do_action.zone])
         lock_srv.try_acquire(resource, sessid)

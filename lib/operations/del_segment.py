@@ -6,7 +6,7 @@ from lib.actions.add_segment import AddSegment
 from lib.actions.del_segment import DelSegment
 
 
-__all__ = ["DelSegmentOp"]
+__all__ = ['DelSegmentOp']
 
 
 class DelSegmentOp(SessionOperation, OperationHelpersMixin):

@@ -5,7 +5,7 @@ from lib.operations.session_operation import SessionOperation
 from lib.operation import OperationError
 
 
-__all__ = ["DelRecordOp"]
+__all__ = ['DelRecordOp']
 
 
 class DelRecordOp(SessionOperation, OperationHelpersMixin):
@@ -25,7 +25,10 @@ class DelRecordOp(SessionOperation, OperationHelpersMixin):
                                              do_action, txn)
 
         # retrieve arena and segment of zone needed for lock
-        arena, segment = self.arena_segment_by_zone(database_srv, do_action.zone, txn)
+        zone_data = self.get_zone_data(database_srv, do_action.zone, txn)
+        arena = zone_data['arena']
+        segment = zone_data['segment']
+
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,
                                                      segment, do_action.zone])
         lock_srv.try_acquire(resource, sessid)

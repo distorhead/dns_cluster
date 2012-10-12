@@ -11,8 +11,8 @@ class DelSegmentResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.optional_fields(request.args, 'segment'))
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
+                                          'auth_key', 'arena', 'segment')
         operation = DelSegmentOp(**kwargs)
 
         d = self.run_operation(operation, request)
@@ -24,7 +24,7 @@ class DelSegmentResource(OperationResource):
 
     def _del_segment_done(self, _, request):
         log.msg("Deleting segment done")
-        self.response(request, 200)
+        self.response(request, 200, {'status': 200})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

@@ -23,7 +23,7 @@ class CommitSessionResource(OperationResource):
 
     def _commit_session_done(self, _, request):
         log.msg("Session commit done")
-        self.response(request, 200)
+        self.response(request, 200, {'status': 200})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

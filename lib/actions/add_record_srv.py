@@ -4,7 +4,7 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
-__all__ = ["AddRecord_SRV"]
+__all__ = ['AddRecord_SRV']
 
 
 @Action.register_action
@@ -15,15 +15,15 @@ class AddRecord_SRV(RecordAction):
 
     def __init__(self, **kwargs):
         super(AddRecord_SRV, self).__init__(**kwargs)
-        self.priority = self.optional_data_by_key(kwargs, "priority", int,
+        self.priority = self.optional_data_by_key(kwargs, 'priority', int,
                                                   self.PRIORITY_DEFAULT)
-        self.weight = self.optional_data_by_key(kwargs, "weight", int,
+        self.weight = self.optional_data_by_key(kwargs, 'weight', int,
                                                 self.WEIGHT_DEFAULT)
 
-        self.service = self.required_data_by_key(kwargs, "service", str)
-        self.port = self.required_data_by_key(kwargs, "port", int)
-        self.domain = self.required_data_by_key(kwargs, "domain", str)
-        self.ttl = self.optional_data_by_key(kwargs, "ttl", int, self.TTL_DEFAULT)
+        self.service = self.required_data_by_key(kwargs, 'service', str)
+        self.port = self.required_data_by_key(kwargs, 'port', int)
+        self.domain = self.required_data_by_key(kwargs, 'domain', str)
+        self.ttl = self.optional_data_by_key(kwargs, 'ttl', int, self.TTL_DEFAULT)
 
     def _do_apply(self, database, txn):
         rec_data = " ".join([str(token) for token in

@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 
 from lib.operation import Operation, OperationError
+from lib.operations.operation_helpers import OperationHelpersMixin
 
 
-class SessionOperation(Operation):
+class SessionOperation(Operation, OperationHelpersMixin):
     """
     Base class for operations that always operates in session.
     Subclasses must implement _run_in_session method.
@@ -18,10 +19,15 @@ class SessionOperation(Operation):
         self.sessid = self.optional_data_by_key(kwargs, 'sessid', int, None)
         if self.sessid is None:
             self.auth_arena = kwargs.get('auth_arena', None)
+            self.auth_key = kwargs.get('auth_key', None)
             if self.auth_arena is None:
                 raise OperationError("Unable to construct operation: "
                                      "wrong operation data: "
                                      "either 'sessid' or 'auth_arena' field required")
+            elif self.auth_key is None:
+                raise OperationError("Unable to construct operation: "
+                                     "wrong operataion data: "
+                                     "'auth_key' required")
 
     def _do_run(self, service_provider, **kwargs):
         database_srv = service_provider.get('database')
@@ -30,6 +36,8 @@ class SessionOperation(Operation):
 
         with database_srv.transaction() as txn:
             if self.sessid is None:
+                self.check_authenticate(self.auth_arena, self.auth_key,
+                                            database_srv, txn)
                 with session_srv.session(self.auth_arena, txn=txn) as sessid:
                     session_data = session_srv.get_session_data(sessid, txn=txn)
 
@@ -41,9 +49,7 @@ class SessionOperation(Operation):
                                    txn,
                                    **kwargs)
                     finally:
-                        print 'releasing lock'
                         lock_srv.release_session(sessid, txn=txn)
-                        print 'locks released'
             else:
                 d = session_srv.unset_watchdog(self.sessid, txn=txn)
                 session_data = session_srv.get_session_data(self.sessid, txn=txn)
@@ -60,7 +66,7 @@ class SessionOperation(Operation):
 
     def _check_access(self, service_provider, sessid, session_data, action, txn):
         if not self._has_access(service_provider, sessid, session_data, action, txn):
-            raise OperationError("Access denied")
+            raise OperationError("access denied")
 
     def _has_access(self, service_provider, sessid, session_data, action, txn):
         """

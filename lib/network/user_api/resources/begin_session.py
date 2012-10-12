@@ -11,7 +11,7 @@ class BeginSessionResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        kwargs = self.optional_fields(request.args, 'auth_arena')
+        kwargs = self.optional_fields(request.args, 'auth_arena', 'auth_key')
         operation = SessionBeginOp(**kwargs)
 
         d = self.run_operation(operation, request)
@@ -23,7 +23,7 @@ class BeginSessionResource(OperationResource):
 
     def _begin_session_done(self, res, request):
         log.msg("Session begin done:", res)
-        self.response(request, 200, {'sessid': res})
+        self.response(request, 200, {'status': 200, 'sessid': res})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

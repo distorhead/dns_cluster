@@ -6,7 +6,7 @@ from lib.operations.session_operation import SessionOperation
 from lib.operations.operation_helpers import OperationHelpersMixin
 
 
-__all__ = ["GetSegmentsOp"]
+__all__ = ['GetSegmentsOp']
 
 
 class GetSegmentsOp(SessionOperation, OperationHelpersMixin):

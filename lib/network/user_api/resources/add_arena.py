@@ -11,8 +11,8 @@ class AddArenaResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena')
-        kwargs.update(self.optional_fields(request.args, 'arena'))
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
+                                          'auth_key', 'arena', 'key')
         operation = AddArenaOp(**kwargs)
 
         d = self.run_operation(operation, request)
@@ -24,7 +24,7 @@ class AddArenaResource(OperationResource):
 
     def _add_arena_done(self, _, request):
         log.msg("Adding arena done")
-        self.response(request, 200)
+        self.response(request, 200, {'status': 200})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

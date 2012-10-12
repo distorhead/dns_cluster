@@ -12,8 +12,8 @@ class GetRecordsResource(OperationResource):
     @request_handler
     def render_GET(self, request):
         print "render_GET"
-        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena')
-        kwargs.update(self.optional_fields(request.args, 'zone'))
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
+                                          'auth_key', 'zone')
 
         operation = GetRecordsOp(**kwargs)
 
@@ -26,7 +26,7 @@ class GetRecordsResource(OperationResource):
 
     def _get_records_done(self, res, request):
         log.msg("Getting records done:", res)
-        self.response(request, 200, res)
+        self.response(request, 200, {'status': 200, 'data': res})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

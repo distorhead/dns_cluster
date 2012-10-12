@@ -7,7 +7,7 @@ from lib.common import split
 from lib import bdb_helpers
 
 
-__all__ = ["GetRecordsOp"]
+__all__ = ['GetRecordsOp']
 
 
 class GetRecordsOp(SessionOperation, OperationHelpersMixin):
@@ -24,7 +24,9 @@ class GetRecordsOp(SessionOperation, OperationHelpersMixin):
         self._check_access(service_provider, sessid, session_data, None, txn)
 
         # retrieve arena and segment needed for lock resource
-        arena, segment = self.arena_segment_by_zone(database_srv, self.zone, txn)
+        zone_data = self.get_zone_data(database_srv, do_action.zone, txn)
+        arena = zone_data['arena']
+        segment = zone_data['segment']
 
         # construct and lock resource
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,

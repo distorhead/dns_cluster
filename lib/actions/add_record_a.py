@@ -4,7 +4,7 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
-__all__ = ["AddRecord_A"]
+__all__ = ['AddRecord_A']
 
 
 @Action.register_action
@@ -13,9 +13,9 @@ class AddRecord_A(RecordAction):
 
     def __init__(self, **kwargs):
         super(AddRecord_A, self).__init__(**kwargs)
-        self.host = self.required_data_by_key(kwargs, "host", str)
-        self.ip = self.required_data_by_key(kwargs, "ip", str)
-        self.ttl = self.optional_data_by_key(kwargs, "ttl", int, self.TTL_DEFAULT)
+        self.host = self.required_data_by_key(kwargs, 'host', str)
+        self.ip = self.required_data_by_key(kwargs, 'ip', str)
+        self.ttl = self.optional_data_by_key(kwargs, 'ttl', int, self.TTL_DEFAULT)
 
     def _do_apply(self, database, txn):
         rec_data = "A " + self.ip

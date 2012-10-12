@@ -7,7 +7,7 @@ from lib.dbstate import Dbstate
 from lib.common import reorder
 
 
-__all__ = ["DelZone"]
+__all__ = ['DelZone']
 
 
 @Action.register_action
@@ -16,7 +16,7 @@ class DelZone(Action, Dbstate):
 
     def __init__(self, **kwargs):
         super(DelZone, self).__init__(**kwargs)
-        self.zone = self.required_data_by_key(kwargs, "zone", str)
+        self.zone = self.required_data_by_key(kwargs, 'zone', str)
 
     def _current_dbstate(self, database, txn):
         zdb = database.dbpool().dns_zone.dbhandle()

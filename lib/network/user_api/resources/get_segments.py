@@ -11,7 +11,8 @@ class GetSegmentsResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
+                                          'auth_key', 'arena')
         operation = GetSegmentsOp(**kwargs)
 
         d = self.run_operation(operation, request)
@@ -23,7 +24,7 @@ class GetSegmentsResource(OperationResource):
 
     def _get_segments_done(self, res, request):
         log.msg("Getting segments done:", res)
-        self.response(request, 200, res)
+        self.response(request, 200, {'status': 200, 'data': res})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

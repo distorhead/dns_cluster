@@ -7,7 +7,7 @@ from lib.dbstate import Dbstate
 from lib.common import reorder
 
 
-__all__ = ["AddZone"]
+__all__ = ['AddZone']
 
 
 @Action.register_action
@@ -16,9 +16,9 @@ class AddZone(Action, Dbstate):
 
     def __init__(self, **kwargs):
         super(AddZone, self).__init__(**kwargs)
-        self.arena = self.required_data_by_key(kwargs, "arena", str)
-        self.segment = self.required_data_by_key(kwargs, "segment", str)
-        self.zone = self.required_data_by_key(kwargs, "zone", str)
+        self.arena = self.required_data_by_key(kwargs, 'arena', str)
+        self.segment = self.required_data_by_key(kwargs, 'segment', str)
+        self.zone = self.required_data_by_key(kwargs, 'zone', str)
 
     def _current_dbstate(self, database, txn):
         return self.get_segment(self.arena, self.segment, database, txn)

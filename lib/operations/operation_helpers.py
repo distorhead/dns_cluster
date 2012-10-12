@@ -491,15 +491,31 @@ class OperationHelpersMixin(object):
         else:
             return None
 
-    def arena_segment_by_zone(self, database_srv, zone, txn=None):
+
+    def get_zone_data(self, database_srv, zone, txn):
         zdb = database_srv.dbpool().dns_zone.dbhandle()
         arena_segment = zdb.get(reorder(zone), None, txn)
         if not arena_segment is None:
             as_list = arena_segment.split(' ', 1)
             if len(as_list) == 2:
-                return (as_list[0], as_list[1])
+                return {
+                    'zone': zone,
+                    'arena': as_list[0],
+                    'segment': as_list[1]
+                }
+        else:
+            return None
 
-        return None
+    def get_arena_data(self, database_srv, arena, txn):
+        adb = database_srv.dbpool().arena.dbhandle()
+        if adb.exists(arena, txn):
+            return {
+                'arena': arena,
+                'key': adb.get(arena, '', txn)
+            }
+        else:
+            return None
+
 
     def check_arena_exists(self, database_srv, arena, txn):
         adb = database_srv.dbpool().arena.dbhandle()
@@ -517,18 +533,18 @@ class OperationHelpersMixin(object):
         if not zdb.exists(reorder(zone), txn):
             raise OperationError("No such zone '{}'".format(zone))
 
+
     def is_zone_in_arena(self, database_srv, zone, arena, txn=None):
         zdb = database_srv.dbpool().dns_zone.dbhandle()
-        as_pair = self.arena_segment_by_zone(database_srv, zone, txn)
-        if not as_pair is None:
-            zarena, _ = as_pair
-            if arena == zarena:
+        zone_data = self.get_zone_data(database_srv, zone, txn)
+        if not zone_data is None:
+            if arena == zone_data['arena']:
                 return True
 
         return False
 
     def is_admin(self, session_data):
-        return session_data['arena'] == '__admin__'
+        return session_data['arena'] == '__all__'
 
     def has_access_to_zone(self, database_srv, zone, session_data, txn=None):
         arena = session_data['arena']
@@ -537,6 +553,16 @@ class OperationHelpersMixin(object):
             return True
         else:
             return self.is_zone_in_arena(database_srv, zone, arena, txn)
+
+    """
+    Authentication checker. Raises exception if authentication fails.
+    """
+    def check_authenticate(self, auth_arena, auth_key, database_srv, txn):
+        aadb = database_srv.dbpool().arena_auth.dbhandle()
+        if not aadb.exists(auth_arena, txn):
+            raise OperationError("access denied")
+        elif aadb.get(auth_arena, None, txn) != auth_key:
+            raise OperationError("access denied")
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

@@ -129,6 +129,7 @@ _sync_app_dbpool = lib.database.DatabasePool(SyncApp.DATABASES,
 
 
 adb  = database.dbpool().arena.dbhandle()
+aadb  = database.dbpool().arena_auth.dbhandle()
 asdb = database.dbpool().arena_segment.dbhandle()
 szdb = database.dbpool().segment_zone.dbhandle()
 zddb = database.dbpool().zone_dns_data.dbhandle()
@@ -151,7 +152,7 @@ dbstate = Dbstate()
 
 
 
-a_add = append_add_action(AddArena(arena='myarena'))
+a_add = append_add_action(AddArena(arena='myarena', key='qwerty'))
 s_add = append_add_action(AddSegment(arena='myarena', segment='mysegment'))
 z_add = append_add_action(AddZone(arena='myarena', segment='mysegment', zone='myzone'))
 rcname_add = append_add_action(AddRecord_CNAME(zone='myzone', host='go',

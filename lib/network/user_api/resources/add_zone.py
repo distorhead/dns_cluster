@@ -13,22 +13,19 @@ class AddZoneResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        print "render_GET"
-        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.optional_fields(request.args, 'segment', 'zone'))
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
+                                          'auth_key', 'arena', 'segment', 'zone')
         return self.add_zone_finalize(kwargs, request)
 
     @request_handler
     def render_PUT(self, request):
-        print "render_PUT"
-        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.optional_fields(request.args, 'segment', 'zone'))
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
+                                          'auth_key', 'arena', 'segment', 'zone')
 
         req = self.parse_content(request.content.read())
 
         if isinstance(req, list):
             kwargs['initial_records'] = req
-            print "Initial records:", req
 
         return self.add_zone_finalize(kwargs, request)
 
@@ -44,7 +41,7 @@ class AddZoneResource(OperationResource):
 
     def _add_zone_done(self, _, request):
         log.msg("Adding zone done")
-        self.response(request, 200)
+        self.response(request, 200, {'status': 200})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

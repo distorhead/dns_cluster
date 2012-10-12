@@ -13,8 +13,8 @@ class DelZoneResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'arena')
-        kwargs.update(self.optional_fields(request.args, 'segment', 'zone'))
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
+                                          'auth_key', 'arena', 'segment', 'zone')
         operation = DelZoneOp(**kwargs)
 
         d = self.run_operation(operation, request)
@@ -26,7 +26,7 @@ class DelZoneResource(OperationResource):
 
     def _del_zone_done(self, _, request):
         log.msg("Deleting zone done")
-        self.response(request, 200)
+        self.response(request, 200, {'status': 200})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

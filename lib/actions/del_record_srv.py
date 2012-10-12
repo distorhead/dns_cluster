@@ -4,7 +4,7 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
-__all__ = ["DelRecord_SRV"]
+__all__ = ['DelRecord_SRV']
 
 
 @Action.register_action
@@ -13,9 +13,9 @@ class DelRecord_SRV(RecordAction):
 
     def __init__(self, **kwargs):
         super(DelRecord_SRV, self).__init__(**kwargs)
-        self.service = self.required_data_by_key(kwargs, "service", str)
-        self.port = self.required_data_by_key(kwargs, "port", int)
-        self.domain = self.required_data_by_key(kwargs, "domain", str)
+        self.service = self.required_data_by_key(kwargs, 'service', str)
+        self.port = self.required_data_by_key(kwargs, 'port', int)
+        self.domain = self.required_data_by_key(kwargs, 'domain', str)
 
     def _do_apply(self, database, txn):
         self._delete_rec(database, txn, self.service, False)

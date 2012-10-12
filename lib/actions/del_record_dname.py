@@ -4,7 +4,7 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
-__all__ = ["DelRecord_DNAME"]
+__all__ = ['DelRecord_DNAME']
 
 
 @Action.register_action
@@ -13,7 +13,7 @@ class DelRecord_DNAME(RecordAction):
 
     def __init__(self, **kwargs):
         super(DelRecord_DNAME, self).__init__(**kwargs)
-        self.zone_dst = self.required_data_by_key(kwargs, "zone_dst", str)
+        self.zone_dst = self.required_data_by_key(kwargs, 'zone_dst', str)
 
     def _do_apply(self, database, txn):
         self._delete_rec(database, txn, "@", False)

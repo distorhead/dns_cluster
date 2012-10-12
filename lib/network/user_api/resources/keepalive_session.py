@@ -23,7 +23,7 @@ class KeepaliveSessionResource(OperationResource):
 
     def _keepalive_session_done(self, _, request):
         log.msg("Session keepalive done")
-        self.response(request, 200)
+        self.response(request, 200, {'status': 200})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

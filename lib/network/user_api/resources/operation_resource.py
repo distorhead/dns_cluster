@@ -58,7 +58,8 @@ class OperationResource(resource.Resource):
     def operation_failure(self, failure, request):
         failure.trap(OperationError, ActionError, SessionError, LockError)
         log.msg("Operation failure:", failure)
-        self.response(request, 200, {'error': failure.getErrorMessage()})
+        self.response(request, 200, {'status': 400,
+                                     'error': failure.getErrorMessage()})
 
     def unknown_failure(self, failure, request):
         log.err("An error occured:")
@@ -97,7 +98,7 @@ def request_handler(func):
             return func(self, request)
 
         except (RequestError, OperationError, ActionError, SessionError) as e:
-            return self.response(request, 200, {"error": str(e)})
+            return self.response(request, 200, {'status': 400, 'error': str(e)})
 
         except Exception, e:
             log.err("An error occured:")

@@ -5,7 +5,7 @@ from lib.operations.operation_helpers import OperationHelpersMixin
 from lib import bdb_helpers
 
 
-__all__ = ["GetArenasOp"]
+__all__ = ['GetArenasOp']
 
 
 class GetArenasOp(SessionOperation, OperationHelpersMixin):

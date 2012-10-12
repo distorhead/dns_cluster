@@ -3,7 +3,7 @@
 from lib.operation import Operation
 
 
-__all__ = ["SessionKeepaliveOp"]
+__all__ = ['SessionKeepaliveOp']
 
 
 class SessionKeepaliveOp(Operation):

@@ -4,7 +4,7 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
-__all__ = ["AddRecord_DNAME"]
+__all__ = ['AddRecord_DNAME']
 
 
 @Action.register_action
@@ -13,8 +13,8 @@ class AddRecord_DNAME(RecordAction):
 
     def __init__(self, **kwargs):
         super(AddRecord_DNAME, self).__init__(**kwargs)
-        self.zone_dst = self.required_data_by_key(kwargs, "zone_dst", str)
-        self.ttl = self.optional_data_by_key(kwargs, "ttl", int, self.TTL_DEFAULT)
+        self.zone_dst = self.required_data_by_key(kwargs, 'zone_dst', str)
+        self.ttl = self.optional_data_by_key(kwargs, 'ttl', int, self.TTL_DEFAULT)
 
     def _do_apply(self, database, txn):
         rec_data = "DNAME " + self.zone_dst

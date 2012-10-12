@@ -60,22 +60,16 @@ class UserApiServiceMaker(object):
         cfg.update(new_cfg)
 
         if not options["interface"] is None:
-            interface = options["interface"]
-        else:
-            interface = cfg["interface"]
+            cfg["interface"] = options["interface"]
 
         if not options["port"] is None:
-            port = options["port"]
-        else:
-            port = cfg["port"]
+            cfg["port"] = options["port"]
 
         if not options["syncd_pid_path"] is None:
-            syncd_pid_path = options["syncd_pid_path"]
-        else:
-            syncd_pid_path = cfg["syncd_pid_path"]
+            cfg["syncd_pid_path"] = options["syncd_pid_path"]
 
         sp = ServiceProvider(init_srv=True, cfg=cfg)
-        self._app = UserApiApp(interface, port, syncd_pid_path, sp)
+        self._app = UserApiApp(cfg, sp)
         return self._app.make_service()
 
 

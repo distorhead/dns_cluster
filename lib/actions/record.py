@@ -21,7 +21,7 @@ class RecordAction(Action, Dbstate):
 
     def __init__(self, **kwargs):
         super(RecordAction, self).__init__(**kwargs)
-        self.zone = self.required_data_by_key(kwargs, "zone", str)
+        self.zone = self.required_data_by_key(kwargs, 'zone', str)
 
     def _current_dbstate(self, database, txn):
         return self.get_zone(self.zone, database, txn)

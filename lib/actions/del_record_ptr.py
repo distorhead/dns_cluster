@@ -4,7 +4,7 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
-__all__ = ["DelRecord_PTR"]
+__all__ = ['DelRecord_PTR']
 
 
 @Action.register_action
@@ -13,8 +13,8 @@ class DelRecord_PTR(RecordAction):
 
     def __init__(self, **kwargs):
         super(DelRecord_PTR, self).__init__(**kwargs)
-        self.host = self.required_data_by_key(kwargs, "host", str)
-        self.domain = self.required_data_by_key(kwargs, "domain", str)
+        self.host = self.required_data_by_key(kwargs, 'host', str)
+        self.domain = self.required_data_by_key(kwargs, 'domain', str)
 
     def _do_apply(self, database, txn):
         self._delete_rec(database, txn, self.host, True)

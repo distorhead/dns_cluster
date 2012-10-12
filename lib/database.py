@@ -148,6 +148,11 @@ class manager(object):
             "flags": 0,
             "open_flags": bdb.DB_CREATE
         },
+        "arena_auth": {
+            "type": bdb.DB_HASH,
+            "flags": 0,
+            "open_flags": bdb.DB_CREATE
+        },
         "arena_segment": {
             "type": bdb.DB_BTREE,
             "flags": bdb.DB_DUP|bdb.DB_DUPSORT,

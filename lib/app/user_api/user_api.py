@@ -8,18 +8,31 @@ from lib import session
 from lib import lock
 from lib.network.user_api.resources import *
 from lib.operations import *
+from lib.common import retrieve_key
 
 from twisted.application import strports
 from twisted.web import server, resource
 from twisted.python import log
 
 
+class UserApiAppError(Exception): pass
+
+
 class UserApiApp(object):
-    def __init__(self, interface, port, syncd_pid_path, sp):
-        self._interface = interface
-        self._port = port
+    @classmethod
+    def cfg_failure(cls, msg):
+        raise UserApiAppError("Configuration failure: {}".format(msg))
+
+    @classmethod
+    def required_key(cls, cfg, key, msg):
+        return retrieve_key(cfg, key, failure_func=cls.cfg_failure, failure_msg=msg)
+
+    def __init__(self, cfg, sp):
+        self._interface = self.required_key(cfg, 'interface', "interface required")
+        self._port = self.required_key(cfg, 'port', "port required")
+        self._syncd_pid_path = self.required_key(cfg, 'syncd_pid_path', 
+                                                     "syncd_pid_path required")
         self._sp = sp
-        self._syncd_pid_path = syncd_pid_path
         self._syncd_pid_last_mtime = None
         self._syncd_pid = None
 

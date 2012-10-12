@@ -5,20 +5,21 @@ from lib.action import Action, ActionError
 from lib.dbstate import Dbstate
 
 
-__all__ = ["DelArena"]
+__all__ = ['DelArena']
 
 
 @Action.register_action
 class DelArena(Action, Dbstate):
     def __init__(self, **kwargs):
         super(DelArena, self).__init__(**kwargs)
-        self.arena = self.required_data_by_key(kwargs, "arena", str)
+        self.arena = self.required_data_by_key(kwargs, 'arena', str)
 
     def _current_dbstate(self, database, txn):
         return self.get_global(database, txn)
 
     def _do_apply(self, database, txn):
         adb = database.dbpool().arena.dbhandle()
+        aadb = database.dbpool().arena_auth.dbhandle()
         asdb = database.dbpool().arena_segment.dbhandle()
 
         if asdb.exists(self.arena, txn):
@@ -27,6 +28,8 @@ class DelArena(Action, Dbstate):
 
         if adb.exists(self.arena, txn):
             adb.delete(self.arena, txn)
+            delete(aadb, self.arena, txn)
+            aadb.delete(self)
         else:
             raise ActionError("unable to delete arena {}: "
                               "arena doesn't exist".format(self.desc()))

@@ -6,7 +6,7 @@ from lib.actions.add_arena import AddArena
 from lib.actions.del_arena import DelArena
 
 
-__all__ = ["AddArenaOp"]
+__all__ = ['AddArenaOp']
 
 
 class AddArenaOp(SessionOperation, OperationHelpersMixin):

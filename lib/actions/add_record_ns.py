@@ -4,7 +4,7 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
-__all__ = ["AddRecord_NS"]
+__all__ = ['AddRecord_NS']
 
 
 @Action.register_action
@@ -13,8 +13,8 @@ class AddRecord_NS(RecordAction):
 
     def __init__(self, **kwargs):
         super(AddRecord_NS, self).__init__(**kwargs)
-        self.domain = self.required_data_by_key(kwargs, "domain", str)
-        self.ttl = self.optional_data_by_key(kwargs, "ttl", int, self.TTL_DEFAULT)
+        self.domain = self.required_data_by_key(kwargs, 'domain', str)
+        self.ttl = self.optional_data_by_key(kwargs, 'ttl', int, self.TTL_DEFAULT)
 
     def _do_apply(self, database, txn):
         rec_data = "NS " + self.domain

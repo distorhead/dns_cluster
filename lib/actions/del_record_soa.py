@@ -4,7 +4,7 @@ from lib.action import Action, ActionError
 from lib.actions.record import RecordAction
 
 
-__all__ = ["DelRecord_SOA"]
+__all__ = ['DelRecord_SOA']
 
 
 @Action.register_action

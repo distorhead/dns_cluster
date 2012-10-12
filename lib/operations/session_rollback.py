@@ -3,7 +3,7 @@
 from lib.operation import Operation
 
 
-__all__ = ["SessionRollbackOp"]
+__all__ = ['SessionRollbackOp']
 
 
 class SessionRollbackOp(Operation):

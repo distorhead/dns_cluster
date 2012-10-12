@@ -11,11 +11,8 @@ class GetZonesResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        kwargs = self.optional_fields(request.args,
-                                      'sessid',
-                                      'auth_arena',
-                                      'arena',
-                                      'segment')
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena',
+                                          'auth_key' 'arena', 'segment')
         operation = GetZonesOp(**kwargs)
 
         d = self.run_operation(operation, request)
@@ -27,7 +24,7 @@ class GetZonesResource(OperationResource):
 
     def _get_zones_done(self, res, request):
         log.msg("Getting all zones done:", res)
-        self.response(request, 200, res)
+        self.response(request, 200, {'status': 200, 'data': res})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

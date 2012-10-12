@@ -6,7 +6,7 @@ from lib.action import Action, ActionError
 from lib.dbstate import Dbstate
 
 
-__all__ = ["DelSegment"]
+__all__ = ['DelSegment']
 
 
 @Action.register_action
@@ -15,8 +15,8 @@ class DelSegment(Action, Dbstate):
 
     def __init__(self, **kwargs):
         super(DelSegment, self).__init__(**kwargs)
-        self.arena = self.required_data_by_key(kwargs, "arena", str)
-        self.segment = self.required_data_by_key(kwargs, "segment", str)
+        self.arena = self.required_data_by_key(kwargs, 'arena', str)
+        self.segment = self.required_data_by_key(kwargs, 'segment', str)
 
     def _current_dbstate(self, database, txn):
         return self.get_arena(self.arena, database, txn)

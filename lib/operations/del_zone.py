@@ -7,7 +7,7 @@ from lib.actions.del_zone import DelZone
 from lib.common import reorder
 
 
-__all__ = ["DelZoneOp"]
+__all__ = ['DelZoneOp']
 
 
 class DelZoneOp(SessionOperation, OperationHelpersMixin):
@@ -27,7 +27,10 @@ class DelZoneOp(SessionOperation, OperationHelpersMixin):
         self._check_access(service_provider, sessid, session_data, do_action, txn)
 
         # retrieve zone arena and segment needed for undo action and lock
-        arena, segment = self.arena_segment_by_zone(database_srv, do_action.zone, txn)
+        zone_data = self.get_zone_data(database_srv, do_action.zone, txn)
+        arena = zone_data['arena']
+        segment = zone_data['segment']
+
         undo_action = AddZone(arena=arena,
                               segment=segment,
                               zone=do_action.zone)

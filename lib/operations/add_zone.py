@@ -7,7 +7,7 @@ from lib.actions.add_zone import AddZone
 from lib.actions.del_zone import DelZone
 
 
-__all__ = ["AddZoneOp"]
+__all__ = ['AddZoneOp']
 
 
 class AddZoneOp(SessionOperation, OperationHelpersMixin):
@@ -45,7 +45,6 @@ class AddZoneOp(SessionOperation, OperationHelpersMixin):
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
 
         for rec_spec in self._records:
-            print "rec_spec:", rec_spec
             rec_type = rec_spec['type']
             act_do = self.make_add_record(rec_type, rec_spec)
             act_undo = self.make_del_record(rec_type, rec_spec)

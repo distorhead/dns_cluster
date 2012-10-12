@@ -13,16 +13,14 @@ class AddRecordResource(OperationResource):
 
     @request_handler
     def render_GET(self, request):
-        print "render_GET"
         return self._add_record_handler(request)
 
     @request_handler
     def render_POST(self, request):
-        print "render_POST"
         return self._add_record_handler(request)
 
     def _add_record_handler(self, request):
-        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena')
+        kwargs = self.optional_fields(request.args, 'sessid', 'auth_arena', 'auth_key')
 
         rec_spec = self.optional_fields(request.args, 'zone', 'type')
         rec_spec.update(self.optional_fields(request.args,
@@ -45,7 +43,7 @@ class AddRecordResource(OperationResource):
 
     def _add_record_done(self, _, request):
         log.msg("Adding record done")
-        self.response(request, 200)
+        self.response(request, 200, {'status': 200})
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

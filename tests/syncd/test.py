@@ -295,7 +295,9 @@ class Test1(unittest.TestCase):
             name = self._generate_str()
             if not adb.exists(name, txn):
                 break
-        return AddArena(arena=name)
+
+        key = self._generate_str()
+        return AddArena(arena=name, key=key)
 
     def _generate_segment(self, arena, env, txn):
         asdb = env.database.dbpool().arena_segment.dbhandle()
@@ -435,7 +437,8 @@ class Test1(unittest.TestCase):
     def _check_arena_exists(self, act, env, txn):
         self.log("[{}] Check exists arena {}", env.name, act.desc())
         adb = env.database.dbpool().arena.dbhandle()
-        return adb.exists(act.arena, txn)
+        aadb = env.database.dbpool().arena_auth.dbhandle()
+        return adb.exists(act.arena, txn) and aadb.exists(act.arena, txn) and aadb.get(act.arena, '', txn) == act.key
 
     def _check_segment_exists(self, act, env, txn):
         self.log("[{}] Check exists segment {}", env.name, act.desc())

@@ -147,7 +147,6 @@ class Test1(unittest.TestCase):
         arena_key = self.generate_str()
         self.request("add_arena?auth_arena=__all__&auth_key=&arena={}&key={}".format(arena_name, arena_key))
         self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
-        print 'OLOLO:', self.request("get_arenas?auth_arena=__all__&auth_key=")
 
         segment_name = self.generate_str()
         while segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)):
@@ -282,6 +281,7 @@ class Test1(unittest.TestCase):
         del rec['key']
         self.assertTrue(rec in recs)
 
+
     def test2(self):
         sessid = self.request("begin_session?auth_arena=__all__&auth_key=")
 
@@ -415,6 +415,7 @@ class Test1(unittest.TestCase):
 
         self.request("commit_session?sessid={}".format(sessid))
 
+
     def test3(self):
         sessid = self.request("begin_session?auth_arena=__all__&auth_key=")
 
@@ -427,6 +428,7 @@ class Test1(unittest.TestCase):
 
         self.request("rollback_session?sessid={}".format(sessid))
         self.assertTrue(not arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
+
 
     def test4(self):
         sessid = self.request("begin_session?auth_arena=__all__&auth_key=")
@@ -441,11 +443,281 @@ class Test1(unittest.TestCase):
         self.request("commit_session?sessid={}".format(sessid))
         self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
 
+
+    def test5(self):
+        new_key = self.generate_str()
+        self.request("mod_auth?auth_arena={}&auth_key=&target={}&key={}".format(ADMIN_ARENA_NAME, ADMIN_ARENA_NAME, new_key))
+
+        resp = self.request_raw_resp("get_arenas?auth_arena={}&auth_key=badkey".format(ADMIN_ARENA_NAME))
+        self.assertEqual(resp['status'], 400)
+
+        self.request("mod_auth?auth_arena={}&auth_key={}&target={}&key=".format(ADMIN_ARENA_NAME, new_key, ADMIN_ARENA_NAME))
+
+        arena_name = self.generate_str()
+        while arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)):
+            arena_name = self.generate_str()
+        arena_key = self.generate_str()
+        self.request("add_arena?auth_arena={}&auth_key=&arena={}&key={}".format(ADMIN_ARENA_NAME, arena_name, arena_key))
+        self.assertTrue(arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)))
+
+        # change arena key in one way
+        new_arena_key = self.generate_str()
+        self.request("mod_auth?auth_arena={}&auth_key={}&target={}&key={}".format(arena_name, arena_key, arena_name, new_arena_key))
+        resp = self.request_raw_resp("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key))
+        self.assertEqual(resp['status'], 400)
+        resp = self.request_raw_resp("get_segments?auth_arena={}&auth_key={}".format(arena_name, new_arena_key))
+        self.assertEqual(resp['status'], 200)
+
+        # restore arena key in second possible way
+        self.request("mod_auth?auth_arena={}&auth_key={}&key={}".format(arena_name, new_arena_key, arena_key))
+        resp = self.request_raw_resp("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key))
+        self.assertEqual(resp['status'], 200)
+        resp = self.request_raw_resp("get_segments?auth_arena={}&auth_key={}".format(arena_name, new_arena_key))
+        self.assertEqual(resp['status'], 400)
+
+
+    def test6(self):
+        arena_name = self.generate_str()
+        while arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="):
+            arena_name = self.generate_str()
+        arena_key = self.generate_str()
+        self.request("add_arena?auth_arena=__all__&auth_key=&arena={}&key={}".format(arena_name, arena_key))
+        self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
+
+        segment_name = self.generate_str()
+        while segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)):
+            segment_name = self.generate_str()
+        self.request("add_segment?auth_arena={}&auth_key={}&segment={}".format(arena_name, arena_key, segment_name))
+        self.assertTrue(segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)))
+
+        self.assertTrue(self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)) ==
+                        self.request("get_segments?auth_arena=__all__&auth_key=&arena={}".format(arena_name)))
+
+        zone_name = self.generate_str()
+        while zone_name in self.request("get_zones?auth_arena=__all__&auth_key="):
+            zone_name = self.generate_str()
+        self.request("add_zone?auth_arena={}&auth_key={}&segment={}&zone={}".format(arena_name, arena_key, segment_name, zone_name))
+        zones = [spec['zone'] for spec in self.request("get_zones?auth_arena={}&auth_key={}&segment={}".format(arena_name, arena_key, segment_name))]
+        self.assertTrue(zone_name in zones)
+
+        # Add and delete each record once: A, CNAME, DNAME, MX, NS, PTR, SOA, SRV, TXT
+        
+        # add and delete A record
+        while True:
+            host_name = self.generate_str()
+            hosts = [rspec['host'] for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'A']
+            if not host_name in hosts:
+                break
+
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'A', 'host': host_name, 'ip': '1.1.1.1'}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&host={host}&ip={ip}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'host': rspec['host'], 'ip': rspec['ip'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'A']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&host={host}&ip={ip}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'host': rspec['host'], 'ip': rspec['ip'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'A']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # add and delete CNAME record
+        while True:
+            host_name = self.generate_str()
+            hosts = [rspec['host'] for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'CNAME']
+            if not host_name in hosts:
+                break
+
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'CNAME', 'host': host_name, 'domain': self.generate_str() + '.' + self.generate_str()}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&host={host}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'host': rspec['host'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'CNAME']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&host={host}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'host': rspec['host'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'CNAME']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # add and delete DNAME record
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'DNAME', 'zone_dst': self.generate_str()}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&zone_dst={zone_dst}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'zone_dst': rspec['zone_dst'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'DNAME']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&zone_dst={zone_dst}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'zone_dst': rspec['zone_dst'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'DNAME']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # add and delete MX record
+        while True:
+            mx_hostname = self.generate_str() + '.' + zone_name
+            mx_hostnames = [rspec['domain'] for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'MX']
+            if not mx_hostname in mx_hostnames:
+                break
+
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'MX', 'domain': mx_hostname}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'MX']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'MX']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # add and delete NS record
+        while True:
+            ns_hostname = self.generate_str() + '.' + zone_name
+            ns_hostnames = [rspec['domain'] for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'NS']
+            if not ns_hostname in ns_hostnames:
+                break
+
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'NS', 'domain': ns_hostname}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'NS']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'NS']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # add and delete PTR record
+        while True:
+            host_name = self.generate_str()
+            hosts = [rspec['host'] for rspec in self.request("get_records?auth_arena={}&&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'PTR']
+            if not host_name in hosts:
+                break
+
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'PTR', 'host': host_name, 'domain': self.generate_str() + '.' + self.generate_str()}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&host={host}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'host': rspec['host'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'PTR']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&host={host}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'host': rspec['host'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'PTR']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # add and delete SOA record
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'SOA', 'primary_ns': ns_hostname, 'resp_person': 'admin@admin.org', 'serial': 24, 'refresh': 12, 'retry': 11, 'expire': 21, 'minimum': 42}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&primary_ns={primary_ns}&resp_person={resp_person}&serial={serial}&refresh={refresh}&retry={retry}&expire={expire}&minimum={minimum}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'type': rspec['type'], 'primary_ns': rspec['primary_ns'], 'resp_person': rspec['resp_person'], 'serial': rspec['serial'], 'refresh': rspec['refresh'], 'retry': rspec['retry'], 'expire': rspec['expire'], 'minimum': rspec['minimum']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'SOA']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&primary_ns={primary_ns}&resp_person={resp_person}&serial={serial}&refresh={refresh}&retry={retry}&expire={expire}&minimum={minimum}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'type': rspec['type'], 'primary_ns': rspec['primary_ns'], 'resp_person': rspec['resp_person'], 'serial': rspec['serial'], 'refresh': rspec['refresh'], 'retry': rspec['retry'], 'expire': rspec['expire'], 'minimum': rspec['minimum']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'SOA']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # add and delete SRV record
+        while True:
+            service = '_' + self.generate_str() + '._' + self.generate_str()
+            services = [rspec['service'] for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'SRV']
+            if not service in services:
+                break
+
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'SRV', 'service': service, 'port': 10500, 'domain': self.generate_str() + '.' + zone_name}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&service={service}&port={port}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'service': rspec['service'], 'port': rspec['port'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'SRV']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&service={service}&port={port}&domain={domain}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'service': rspec['service'], 'port': rspec['port'], 'domain': rspec['domain'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'SRV']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # add and delete TXT record
+        while True:
+            text = self.generate_str(1000, 10000)
+
+            txts = [rspec['text'] for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'TXT']
+            if not text in txts:
+                break
+
+        rec = {'arena': arena_name, 'key': arena_key, 'zone': zone_name, 'type': 'TXT', 'text': text}
+        self.request("add_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&text={text}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'text': rspec['text'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'TXT']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(rec in recs)
+
+        rec['arena'] = arena_name
+        rec['key'] = arena_key
+        self.request("del_record?auth_arena={arena}&auth_key={key}&zone={zone}&type={type}&text={text}".format(**rec))
+        recs = [{'zone': rspec['zone'], 'text': rspec['text'], 'type': rspec['type']} for rspec in self.request("get_records?auth_arena={}&auth_key={}&zone={}".format(arena_name, arena_key, zone_name)) if rspec['type'] == 'TXT']
+        del rec['arena']
+        del rec['key']
+        self.assertTrue(not rec in recs)
+
+
+        # delete zone
+        self.request("del_zone?auth_arena={}&auth_key={}&segment={}&zone={}".format(arena_name, arena_key, segment_name, zone_name))
+        zones = [spec['zone'] for spec in self.request("get_zones?auth_arena={}&auth_key={}&segment={}".format(arena_name, arena_key, segment_name))]
+        self.assertTrue(not zone_name in zones)
+
+        # delete segment
+        self.request("del_segment?auth_arena={}&auth_key={}&segment={}".format(arena_name, arena_key, segment_name))
+        self.assertTrue(not segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)))
+
+        # delete arena
+        self.request("del_arena?auth_arena=__all__&auth_key=&arena={}&key={}".format(arena_name, arena_key))
+        self.assertTrue(not arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
+
     def runTest(self):
         self.test1()
         self.test2()
         self.test3()
         self.test4()
+        self.test5()
+        self.test6()
 
 
 if __name__ == '__main__':

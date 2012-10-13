@@ -18,10 +18,13 @@ class ModAuthOp(SessionOperation, OperationHelpersMixin):
         lock_srv = service_provider.get('lock')
         database_srv = service_provider.get('database')
 
+        if self.is_admin(session_data):
+            self.required_data_by_key(self._kwargs, 'target', str)
+        else:
+            self._kwargs['target'] = session_data['arena']
+
         # validation of arguments also goes here
         do_action = ModAuth(**self._kwargs)
-
-        self._check_access(service_provider, sessid, session_data, do_action, txn)
 
         # retrieve old key from database needed for undo action
         auth_data = self.get_auth_data(database_srv, do_action.target, txn)
@@ -40,9 +43,6 @@ class ModAuthOp(SessionOperation, OperationHelpersMixin):
         lock_srv.try_acquire(resource, sessid)
 
         session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
-
-    def _has_access(self, service_provider, sessid, session_data, action, txn):
-        return self.is_admin(session_data)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

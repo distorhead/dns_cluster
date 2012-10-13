@@ -142,11 +142,11 @@ class Test1(unittest.TestCase):
 
     def test1(self):
         arena_name = self.generate_str()
-        while arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="):
+        while arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)):
             arena_name = self.generate_str()
         arena_key = self.generate_str()
-        self.request("add_arena?auth_arena=__all__&auth_key=&arena={}&key={}".format(arena_name, arena_key))
-        self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
+        self.request("add_arena?auth_arena={}&auth_key=&arena={}&key={}".format(ADMIN_ARENA_NAME, arena_name, arena_key))
+        self.assertTrue(arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)))
 
         segment_name = self.generate_str()
         while segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)):
@@ -155,10 +155,10 @@ class Test1(unittest.TestCase):
         self.assertTrue(segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)))
 
         self.assertTrue(self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)) ==
-                        self.request("get_segments?auth_arena=__all__&auth_key=&arena={}".format(arena_name)))
+                        self.request("get_segments?auth_arena={}&auth_key=&arena={}".format(ADMIN_ARENA_NAME, arena_name)))
 
         zone_name = self.generate_str()
-        while zone_name in self.request("get_zones?auth_arena=__all__&auth_key="):
+        while zone_name in self.request("get_zones?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)):
             zone_name = self.generate_str()
         self.request("add_zone?auth_arena={}&auth_key={}&segment={}&zone={}".format(arena_name, arena_key, segment_name, zone_name))
         zones = [spec['zone'] for spec in self.request("get_zones?auth_arena={}&auth_key={}&segment={}".format(arena_name, arena_key, segment_name))]
@@ -283,7 +283,7 @@ class Test1(unittest.TestCase):
 
 
     def test2(self):
-        sessid = self.request("begin_session?auth_arena=__all__&auth_key=")
+        sessid = self.request("begin_session?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME))
 
         arena_name = self.generate_str()
         while arena_name in self.request("get_arenas?sessid={}".format(sessid)):
@@ -417,7 +417,7 @@ class Test1(unittest.TestCase):
 
 
     def test3(self):
-        sessid = self.request("begin_session?auth_arena=__all__&auth_key=")
+        sessid = self.request("begin_session?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME))
 
         arena_name = self.generate_str()
         while arena_name in self.request("get_arenas?sessid={}".format(sessid)):
@@ -427,11 +427,11 @@ class Test1(unittest.TestCase):
         self.assertTrue(arena_name in self.request("get_arenas?sessid={}".format(sessid)))
 
         self.request("rollback_session?sessid={}".format(sessid))
-        self.assertTrue(not arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
+        self.assertTrue(not arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)))
 
 
     def test4(self):
-        sessid = self.request("begin_session?auth_arena=__all__&auth_key=")
+        sessid = self.request("begin_session?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME))
 
         arena_name = self.generate_str()
         while arena_name in self.request("get_arenas?sessid={}".format(sessid)):
@@ -441,7 +441,7 @@ class Test1(unittest.TestCase):
         self.assertTrue(arena_name in self.request("get_arenas?sessid={}".format(sessid)))
 
         self.request("commit_session?sessid={}".format(sessid))
-        self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
+        self.assertTrue(arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)))
 
 
     def test5(self):
@@ -478,11 +478,11 @@ class Test1(unittest.TestCase):
 
     def test6(self):
         arena_name = self.generate_str()
-        while arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="):
+        while arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)):
             arena_name = self.generate_str()
         arena_key = self.generate_str()
-        self.request("add_arena?auth_arena=__all__&auth_key=&arena={}&key={}".format(arena_name, arena_key))
-        self.assertTrue(arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
+        self.request("add_arena?auth_arena={}&auth_key=&arena={}&key={}".format(ADMIN_ARENA_NAME, arena_name, arena_key))
+        self.assertTrue(arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)))
 
         segment_name = self.generate_str()
         while segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)):
@@ -491,10 +491,10 @@ class Test1(unittest.TestCase):
         self.assertTrue(segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)))
 
         self.assertTrue(self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)) ==
-                        self.request("get_segments?auth_arena=__all__&auth_key=&arena={}".format(arena_name)))
+                        self.request("get_segments?auth_arena={}&auth_key=&arena={}".format(ADMIN_ARENA_NAME, arena_name)))
 
         zone_name = self.generate_str()
-        while zone_name in self.request("get_zones?auth_arena=__all__&auth_key="):
+        while zone_name in self.request("get_zones?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)):
             zone_name = self.generate_str()
         self.request("add_zone?auth_arena={}&auth_key={}&segment={}&zone={}".format(arena_name, arena_key, segment_name, zone_name))
         zones = [spec['zone'] for spec in self.request("get_zones?auth_arena={}&auth_key={}&segment={}".format(arena_name, arena_key, segment_name))]
@@ -708,8 +708,8 @@ class Test1(unittest.TestCase):
         self.assertTrue(not segment_name in self.request("get_segments?auth_arena={}&auth_key={}".format(arena_name, arena_key)))
 
         # delete arena
-        self.request("del_arena?auth_arena=__all__&auth_key=&arena={}&key={}".format(arena_name, arena_key))
-        self.assertTrue(not arena_name in self.request("get_arenas?auth_arena=__all__&auth_key="))
+        self.request("del_arena?auth_arena={}&auth_key=&arena={}&key={}".format(ADMIN_ARENA_NAME, arena_name, arena_key))
+        self.assertTrue(not arena_name in self.request("get_arenas?auth_arena={}&auth_key=".format(ADMIN_ARENA_NAME)))
 
     def runTest(self):
         self.test1()

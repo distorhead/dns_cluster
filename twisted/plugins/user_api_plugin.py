@@ -20,7 +20,8 @@ CONFIG_DEFAULT = {
 
     "interface": "localhost",
     "port": 2100,
-    "syncd_pid_path": "twistd.pid"
+    "syncd_pid_path": "twistd.pid",
+    "transport-encrypt": False
 }
 
 
@@ -31,7 +32,10 @@ class Options(usage.Options):
         ["config", "c", "/etc/dns_cluster/user_apid.yaml",
             "Path to the configuration file."],
         ["syncd_pid_path", "s", None,
-            "Path to the file containing pid of the syncd daemon."]
+            "Path to the file containing pid of the syncd daemon."],
+        ["transport-encrypt", "e", None, "Enable/disable transport encryption [yes (default)/no]"],
+        ["private-key", "k", None, "Private key file for transport encryption"],
+        ["cert", "s", None, "Certificate file for transport encryption"],
     ]
 
 
@@ -56,17 +60,33 @@ class UserApiServiceMaker(object):
 
     def makeService(self, options):
         cfg = CONFIG_DEFAULT
-        new_cfg = self._read_cfg(options["config"])
+        new_cfg = self._read_cfg(options['config'])
         cfg.update(new_cfg)
 
-        if not options["interface"] is None:
-            cfg["interface"] = options["interface"]
+        if not options['interface'] is None:
+            cfg['interface'] = options['interface']
 
-        if not options["port"] is None:
-            cfg["port"] = options["port"]
+        if not options['port'] is None:
+            cfg['port'] = options['port']
 
-        if not options["syncd_pid_path"] is None:
-            cfg["syncd_pid_path"] = options["syncd_pid_path"]
+        if not options['syncd_pid_path'] is None:
+            cfg['syncd_pid_path'] = options['syncd_pid_path']
+
+        if not options['private-key'] is None:
+            cfg['private-key'] = options['private-key']
+
+        if not options['cert'] is None:
+            cfg['cert'] = options['cert']
+
+        if not options['transport-encrypt'] is None:
+            val = options['transport-encrypt']
+            if val == "yes":
+                cfg['transport-encrypt'] = True
+            elif val == "no":
+                cfg['transport-encrypt'] = False
+            else:
+                raise Exception("unknown value for transport-encrypt: "
+                                "'{}'".format(val));
 
         sp = ServiceProvider(init_srv=True, cfg=cfg)
         self._app = UserApiApp(cfg, sp)

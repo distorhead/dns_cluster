@@ -32,14 +32,18 @@ class UserApiApp(object):
         self._port = self.required_key(cfg, 'port', "port required")
         self._syncd_pid_path = self.required_key(cfg, 'syncd_pid_path', 
                                                      "syncd_pid_path required")
+
+        self._transport_encrypt = cfg.get('transport-encrypt', True)
+        if self._transport_encrypt:
+            self._private_key = self.required_key(cfg, 'private-key',
+                                    "private-key required for encryption")
+            self._cert = self.required_key(cfg, 'cert', "cert required for encryption")
+
         self._sp = sp
         self._syncd_pid_last_mtime = None
         self._syncd_pid = None
 
     def make_service(self):
-        endpoint_spec = "tcp:interface={interface}:port={port}".format(
-                         interface=self._interface, port=self._port)
-
         root = resource.Resource()
         root.putChild('get_arenas', GetArenasResource(self._sp))
         root.putChild('get_segments', GetSegmentsResource(self._sp))
@@ -79,6 +83,17 @@ class UserApiApp(object):
         self.add_database_change_resource(
             root, 'mod_auth', ModAuthResource(self._sp)
         )
+
+        if self._transport_encrypt:
+            endpoint_spec = ("ssl:interface={interface}:port={port}:"
+                             "privateKey={pkey}:certKey={cert}".format(
+                                 interface=self._interface,
+                                 port=self._port,
+                                 pkey=self._private_key,
+                                 cert=self._cert))
+        else:
+            endpoint_spec = "tcp:interface={interface}:port={port}".format(
+                             interface=self._interface, port=self._port)
 
         factory = server.Site(root)
         twisted_service = strports.service(endpoint_spec, factory)

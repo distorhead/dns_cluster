@@ -5,7 +5,7 @@ import signal
 
 from zope.interface import implements
 from twisted.internet import reactor
-from twisted.python import usage
+from twisted.python import usage, log
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 
@@ -64,43 +64,48 @@ class SyncServiceMaker(object):
         self._sa.database_updated()
 
     def makeService(self, options):
-        cfg = CONFIG_DEFAULT
-        new_cfg = self._read_cfg(options['config'])
-        cfg.update(new_cfg)
+        try:
+            cfg = CONFIG_DEFAULT
+            new_cfg = self._read_cfg(options['config'])
+            cfg.update(new_cfg)
 
-        cfg.setdefault('server', {})
+            cfg.setdefault('server', {})
 
-        if not options['name'] is None:
-            cfg['server']['name'] = options['name']
+            if not options['name'] is None:
+                cfg['server']['name'] = options['name']
 
-        if not options['interface'] is None:
-            cfg['server']['interface'] = options['interface']
+            if not options['interface'] is None:
+                cfg['server']['interface'] = options['interface']
 
-        if not options['port'] is None:
-            cfg['server']['port'] = options['port']
+            if not options['port'] is None:
+                cfg['server']['port'] = options['port']
 
-        if not options['private-key'] is None:
-            cfg['server']['private-key'] = options['private-key']
+            if not options['private-key'] is None:
+                cfg['server']['private-key'] = options['private-key']
 
-        if not options['cert'] is None:
-            cfg['server']['cert'] = options['cert']
+            if not options['cert'] is None:
+                cfg['server']['cert'] = options['cert']
 
-        if not options['transport-encrypt'] is None:
-            val = options['transport-encrypt']
-            if val == "yes":
-                cfg['transport-encrypt'] = True
-            elif val == "no":
-                cfg['transport-encrypt'] = False
-            else:
-                raise Exception("unknown value for transport-encrypt: "
-                                "'{}'".format(val));
+            if not options['transport-encrypt'] is None:
+                val = options['transport-encrypt']
+                if val == "yes":
+                    cfg['transport-encrypt'] = True
+                elif val == "no":
+                    cfg['transport-encrypt'] = False
+                else:
+                    raise Exception("unknown value for transport-encrypt: "
+                                    "'{}'".format(val));
 
-        sp = ServiceProvider(init_srv=True, cfg=cfg)
-        self._sa = SyncApp(cfg, sp.get('database'), sp.get('action_journal'))
+            sp = ServiceProvider(init_srv=True, cfg=cfg)
+            self._sa = SyncApp(cfg, sp.get('database'), sp.get('action_journal'))
 
-        signal.signal(signal.SIGUSR2, self._sighandler)
-        self._sa.start_pull()
-        return self._sa.make_service()
+            signal.signal(signal.SIGUSR2, self._sighandler)
+            self._sa.start_pull()
+            return self._sa.make_service()
+
+        except Exception, e:
+            log.err(str(e))
+            exit(1)
 
 
 sync_service_maker = SyncServiceMaker()

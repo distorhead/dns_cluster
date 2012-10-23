@@ -4,7 +4,7 @@ import yaml
 
 from zope.interface import implements
 from twisted.internet import reactor
-from twisted.python import usage
+from twisted.python import usage, log
 from twisted.plugin import IPlugin
 from twisted.application.service import IServiceMaker
 
@@ -59,38 +59,43 @@ class UserApiServiceMaker(object):
             return {}
 
     def makeService(self, options):
-        cfg = CONFIG_DEFAULT
-        new_cfg = self._read_cfg(options['config'])
-        cfg.update(new_cfg)
+        try:
+            cfg = CONFIG_DEFAULT
+            new_cfg = self._read_cfg(options['config'])
+            cfg.update(new_cfg)
 
-        if not options['interface'] is None:
-            cfg['interface'] = options['interface']
+            if not options['interface'] is None:
+                cfg['interface'] = options['interface']
 
-        if not options['port'] is None:
-            cfg['port'] = options['port']
+            if not options['port'] is None:
+                cfg['port'] = options['port']
 
-        if not options['syncd_pid_path'] is None:
-            cfg['syncd_pid_path'] = options['syncd_pid_path']
+            if not options['syncd_pid_path'] is None:
+                cfg['syncd_pid_path'] = options['syncd_pid_path']
 
-        if not options['private-key'] is None:
-            cfg['private-key'] = options['private-key']
+            if not options['private-key'] is None:
+                cfg['private-key'] = options['private-key']
 
-        if not options['cert'] is None:
-            cfg['cert'] = options['cert']
+            if not options['cert'] is None:
+                cfg['cert'] = options['cert']
 
-        if not options['transport-encrypt'] is None:
-            val = options['transport-encrypt']
-            if val == "yes":
-                cfg['transport-encrypt'] = True
-            elif val == "no":
-                cfg['transport-encrypt'] = False
-            else:
-                raise Exception("unknown value for transport-encrypt: "
-                                "'{}'".format(val));
+            if not options['transport-encrypt'] is None:
+                val = options['transport-encrypt']
+                if val == "yes":
+                    cfg['transport-encrypt'] = True
+                elif val == "no":
+                    cfg['transport-encrypt'] = False
+                else:
+                    raise Exception("unknown value for transport-encrypt: "
+                                    "'{}'".format(val));
 
-        sp = ServiceProvider(init_srv=True, cfg=cfg)
-        self._app = UserApiApp(cfg, sp)
-        return self._app.make_service()
+            sp = ServiceProvider(init_srv=True, cfg=cfg)
+            self._app = UserApiApp(cfg, sp)
+            return self._app.make_service()
+
+        except Exception, e:
+            log.err(str(e))
+            exit(1)
 
 
 user_api_service_maker = UserApiServiceMaker()

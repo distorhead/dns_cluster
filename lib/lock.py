@@ -24,7 +24,7 @@ class manager(object):
     RECORD_DELIMITER = " "
 
     REPEAT_PERIOD_SECONDS_DEFAULT = 5.0
-    MAX_ATTEMPTS_DEFAULT = 5
+    MAX_ATTEMPTS_DEFAULT = 1
 
     DATABASES = {
         "lock": {
@@ -39,6 +39,11 @@ class manager(object):
         },
         "session_lock": {
             "type": database.bdb.DB_BTREE,
+            "flags": database.bdb.DB_DUP|database.bdb.DB_DUPSORT,
+            "open_flags": database.bdb.DB_CREATE
+        },
+        "lock_wait": {
+            "type": database.bdb.DB_HASH,
             "flags": database.bdb.DB_DUP|database.bdb.DB_DUPSORT,
             "open_flags": database.bdb.DB_CREATE
         }
@@ -63,31 +68,52 @@ class manager(object):
         Blocking method to acquire a lock.
         Returns True if acquire successful.
         Returns False if acquire cannot be done.
-        Raises an exception if maximum number of attempts achieved.
+        Method internally open's transaction when trying to acquire lock.
         """
 
         repeat_period = kwargs.get('repeat_period', self.REPEAT_PERIOD_SECONDS_DEFAULT)
         max_attempts = kwargs.get('max_attempts', self.MAX_ATTEMPTS_DEFAULT)
 
-        if self._is_valid_resource(resource):
-            attempt = 1
-            l = self.Lock(resource, sessid)
-            while True:
+        ldb = self.dbpool().lock.dbhandle()
+        lwdb = self.dbpool().lock_wait.dbhandle()
+        attempt = 1
+        while attempt <= max_attempts:
+            try:
+                self.try_acquire(resource, sessid)
+                bdb_helpers.delete(lwdb, str(sessid), None)
+                return True
+            except LockError:
                 with self._database.transaction() as txn:
-                    if self._do_acquire(l, txn):
-                        return
+                    next_resource = resource
+                    while not next_resource is None:
+                        holder_info = ldb.get(next_resource, None, txn)
+                        if holder_info is None:
+                            # this is inconsistency of database
+                            return False
+                        else:
+                            holder_info_list = holder_info.split(self.RECORD_DELIMITER, 1)
+                            if len(holder_info_list) != 2:
+                                # this is inconsistency of database
+                                return False
+                            else:
+                                holder_sessid = int(holder_info_list[0])
+                                if holder_sessid == sessid:
+                                    # deadlock ring detected
+                                    return False
 
-                if attempt == max_attempts:
-                    self._lock_failure(resource, sessid)
+                                next_resource = lwdb.get(str(holder_sessid), None, txn)
+
+                    if not lwdb.exists(str(sessid), txn):
+                        lwdb.put(str(sessid), resource, txn)
 
                 time.sleep(repeat_period)
                 attempt += 1
-        else:
-            self._resource_not_valid_failure(resource)
+
+        bdb_helpers.delete(lwdb, str(sessid), None)
+        return False
 
     @database.transactional(database_srv_attr='_database')
     def try_acquire(self, resource, sessid, **kwargs):
-        print 'Trying to acquire:', resource, 'in session:', sessid
         if self._is_valid_resource(resource):
             txn = kwargs['txn']
             l = self.Lock(resource, sessid)
@@ -238,7 +264,6 @@ class manager(object):
         sessid_str = str(sessid)
         resources = bdb_helpers.get_all(sldb, sessid_str, txn)
         for res in resources:
-            print "Releasing", res, "in session", sessid
             self._do_release(res, True, txn)
 
         bdb_helpers.delete(sldb, sessid_str, txn)

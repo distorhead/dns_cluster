@@ -14,7 +14,7 @@ class GetSegmentsOp(SessionOperation, OperationHelpersMixin):
         SessionOperation.__init__(self, **kwargs)
         self._kwargs = kwargs
 
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
 
@@ -28,13 +28,14 @@ class GetSegmentsOp(SessionOperation, OperationHelpersMixin):
             arena = self.required_data_by_key(session_data, 'arena', str)
 
         # check that arena exists in db
-        self.check_arena_exists(database_srv, arena, txn)
+        self.check_arena_exists(database_srv, arena)
 
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena])
-        lock_srv.try_acquire(resource, sessid)
+        self._acquire_lock(service_provider, resource, sessid)
 
         asdb = database_srv.dbpool().arena_segment.dbhandle()
-        return bdb_helpers.get_all(asdb, arena, txn)
+        with database_srv.transaction() as txn:
+            return bdb_helpers.get_all(asdb, arena, txn)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

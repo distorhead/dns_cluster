@@ -50,7 +50,6 @@ class OperationResource(resource.Resource):
         self._es = EventStorage('operation_done')
 
     def run_operation(self, operation, request):
-        log.msg("Deferring operation run:", operation)
         d = threads.deferToThread(operation.run, self._sp)
         d.addCallback(self._operation_done, operation)
         return d

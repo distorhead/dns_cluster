@@ -1,15 +1,20 @@
 # -*- coding: utf-8 -*-
 
+import functools
+
 from lib.operation import OperationError
 from lib.actions import *
 from lib.actions.record import RecordAction
 from lib.common import split, reorder
 from lib.defs import ADMIN_ARENA_NAME
 from lib import bdb_helpers
+from lib.database import transactional2
 
 
 class OperationHelpersMixin(object):
-    def _retrieve_record(self, database_srv, zone, host, pred, txn):
+    @transactional2
+    def _retrieve_record(self, database_srv, zone, host, pred, **kwargs):
+        txn = kwargs['txn']
         ddb = database_srv.dbpool().dns_data.dbhandle()
         recs = bdb_helpers.get_all(ddb, zone + ' ' + host, txn)
         for rec in recs:
@@ -20,10 +25,14 @@ class OperationHelpersMixin(object):
         return []
 
 
-    def add_to_del_a(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_a(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         return DelRecord_A(zone=act.zone, host=act.host, ip=act.ip)
 
-    def del_to_add_a(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_a(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         host = act.host
         ip = act.ip
@@ -35,7 +44,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, host, pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, host, pred, txn=txn)
         if rec_list:
             ttl = rec_list[2]
 
@@ -57,10 +66,13 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def add_to_del_cname(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_cname(self, database_srv, act, **kwargs):
         return DelRecord_CNAME(zone=act.zone, host=act.host, domain=act.domain)
 
-    def del_to_add_cname(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_cname(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         host = act.host
         domain = act.domain
@@ -72,7 +84,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, host, pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, host, pred, txn=txn)
         if rec_list:
             ttl = rec_list[2]
 
@@ -94,10 +106,13 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def add_to_del_dname(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_dname(self, database_srv, act, **kwargs):
         return DelRecord_DNAME(zone=act.zone, zone_dst=act.zone_dst)
 
-    def del_to_add_dname(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_dname(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         zone_dst = act.zone_dst
         ttl = RecordAction.TTL_DEFAULT
@@ -108,7 +123,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn=txn)
         if rec_list:
             ttl = rec_list[2]
 
@@ -129,10 +144,13 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def add_to_del_mx(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_mx(self, database_srv, act, **kwargs):
         return DelRecord_MX(zone=act.zone, domain=act.domain)
 
-    def del_to_add_mx(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_mx(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         domain = act.domain
         priority = AddRecord_MX.PRIORITY_DEFAULT
@@ -144,7 +162,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn=txn)
         if rec_list:
             priority = rec_list[4]
             ttl = rec_list[2]
@@ -167,10 +185,13 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def add_to_del_ns(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_ns(self, database_srv, act, **kwargs):
         return DelRecord_NS(zone=act.zone, domain=act.domain)
 
-    def del_to_add_ns(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_ns(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         domain = act.domain
         ttl = RecordAction.TTL_DEFAULT
@@ -181,7 +202,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn=txn)
         if rec_list:
             ttl = rec_list[2]
 
@@ -202,10 +223,13 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def add_to_del_ptr(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_ptr(self, database_srv, act, **kwargs):
         return DelRecord_PTR(zone=act.zone, host=act.host, domain=act.domain)
 
-    def del_to_add_ptr(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_ptr(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         host = act.host
         domain = act.domain
@@ -217,7 +241,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, host, pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, host, pred, txn=txn)
         if rec_list:
             ttl = rec_list[2]
 
@@ -239,10 +263,13 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def add_to_del_soa(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_soa(self, database_srv, act, **kwargs):
         return DelRecord_SOA(zone=act.zone)
 
-    def del_to_add_soa(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_soa(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         primary_ns = None
         resp_person = None
@@ -259,7 +286,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn=txn)
         if rec_list:
             ttl = rec_list[2]
             (primary_ns, resp_person, serial,
@@ -295,13 +322,16 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def add_to_del_srv(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_srv(self, database_srv, act, **kwargs):
         return DelRecord_SRV(zone=act.zone,
                              service=act.service,
                              port=act.port,
                              domain=act.domain)
 
-    def del_to_add_srv(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_srv(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         service = act.service
         port = act.port
@@ -318,7 +348,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, service, pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, service, pred, txn=txn)
         if rec_list:
             priority = rec_list[4]
             weight = rec_list[5]
@@ -351,10 +381,13 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def add_to_del_txt(self, database_srv, act, txn):
+    @transactional2
+    def add_to_del_txt(self, database_srv, act, **kwargs):
         return DelRecord_TXT(zone=act.zone, text=act.text)
 
-    def del_to_add_txt(self, database_srv, act, txn):
+    @transactional2
+    def del_to_add_txt(self, database_srv, act, **kwargs):
+        txn = kwargs['txn']
         zone = act.zone
         text = act.text
         ttl = RecordAction.TTL_DEFAULT
@@ -365,7 +398,7 @@ class OperationHelpersMixin(object):
             else:
                 return False
 
-        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn)
+        rec_list = self._retrieve_record(database_srv, zone, '@', pred, txn=txn)
         if rec_list:
             ttl = rec_list[2]
 
@@ -470,15 +503,19 @@ class OperationHelpersMixin(object):
         rec_map = self._get_rec_map(rec_type)
         return rec_map['del'](**spec)
 
-    def add_to_del_record(self, database_srv, rec_type, act, txn):
+    @transactional2
+    def add_to_del_record(self, database_srv, rec_type, act, **kwargs):
+        txn = kwargs['txn']
         rec_map = self._get_rec_map(rec_type)
         converter = rec_map['add_to_del']
-        return converter(self, database_srv, act, txn)
+        return converter(self, database_srv, act, txn=txn)
 
-    def del_to_add_record(self, database_srv, rec_type, act, txn):
+    @transactional2
+    def del_to_add_record(self, database_srv, rec_type, act, **kwargs):
+        txn = kwargs['txn']
         rec_map = self._get_rec_map(rec_type)
         converter = rec_map['del_to_add']
-        return converter(self, database_srv, act, txn)
+        return converter(self, database_srv, act, txn=txn)
 
     def make_rec_spec(self, zone_data_key, rec):
         rec_list = split(rec)
@@ -493,7 +530,9 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def get_zone_data(self, database_srv, zone, txn):
+    @transactional2
+    def get_zone_data(self, database_srv, zone, **kwargs):
+        txn = kwargs['txn']
         zdb = database_srv.dbpool().dns_zone.dbhandle()
         arena_segment = zdb.get(reorder(zone), None, txn)
         if not arena_segment is None:
@@ -507,7 +546,9 @@ class OperationHelpersMixin(object):
         else:
             return None
 
-    def get_arena_data(self, database_srv, arena, txn):
+    @transactional2
+    def get_arena_data(self, database_srv, arena, **kwargs):
+        txn = kwargs['txn']
         adb = database_srv.dbpool().arena.dbhandle()
         if adb.exists(arena, txn):
             return {
@@ -516,7 +557,9 @@ class OperationHelpersMixin(object):
         else:
             return None
 
-    def get_auth_data(self, database_srv, target, txn):
+    @transactional2
+    def get_auth_data(self, database_srv, target, **kwargs):
+        txn = kwargs['txn']
         aadb = database_srv.dbpool().arena_auth.dbhandle()
         if aadb.exists(target, txn):
             return {
@@ -527,26 +570,33 @@ class OperationHelpersMixin(object):
             return None
 
 
-    def check_arena_exists(self, database_srv, arena, txn):
+    @transactional2
+    def check_arena_exists(self, database_srv, arena, **kwargs):
+        txn = kwargs['txn']
         adb = database_srv.dbpool().arena.dbhandle()
         if not adb.exists(arena, txn):
             raise OperationError("No such arena '{}'".format(arena))
 
-    def check_segment_exists(self, database_srv, arena, segment, txn):
+    @transactional2
+    def check_segment_exists(self, database_srv, arena, segment, **kwargs):
+        txn = kwargs['txn']
         asdb = database_srv.dbpool().arena_segment.dbhandle()
         if not segment in bdb_helpers.get_all(asdb, arena, txn):
             raise OperationError("No such segment '{}' in arena '{}'".format(
                                  segment, arena))
 
-    def check_zone_exists(self, database_srv, zone, txn):
+    @transactional2
+    def check_zone_exists(self, database_srv, zone, **kwargs):
+        txn = kwargs['txn']
         zdb = database_srv.dbpool().dns_zone.dbhandle()
         if not zdb.exists(reorder(zone), txn):
             raise OperationError("No such zone '{}'".format(zone))
 
-
-    def is_zone_in_arena(self, database_srv, zone, arena, txn=None):
+    @transactional2
+    def is_zone_in_arena(self, database_srv, zone, arena, **kwargs):
+        txn = kwargs['txn']
         zdb = database_srv.dbpool().dns_zone.dbhandle()
-        zone_data = self.get_zone_data(database_srv, zone, txn)
+        zone_data = self.get_zone_data(database_srv, zone, txn=txn)
         if not zone_data is None:
             if arena == zone_data['arena']:
                 return True
@@ -556,18 +606,22 @@ class OperationHelpersMixin(object):
     def is_admin(self, session_data):
         return session_data['arena'] == ADMIN_ARENA_NAME
 
-    def has_access_to_zone(self, database_srv, zone, session_data, txn=None):
+    @transactional2
+    def has_access_to_zone(self, database_srv, zone, session_data, **kwargs):
+        txn = kwargs['txn']
         arena = session_data['arena']
 
         if self.is_admin(session_data):
             return True
         else:
-            return self.is_zone_in_arena(database_srv, zone, arena, txn)
+            return self.is_zone_in_arena(database_srv, zone, arena, txn=txn)
 
     """
     Authentication checker. Raises exception if authentication fails.
     """
-    def check_authenticate(self, auth_arena, auth_key, database_srv, txn):
+    @transactional2
+    def check_authenticate(self, database_srv, auth_arena, auth_key, **kwargs):
+        txn = kwargs['txn']
         aadb = database_srv.dbpool().arena_auth.dbhandle()
         if not aadb.exists(auth_arena, txn):
             raise OperationError("access denied")

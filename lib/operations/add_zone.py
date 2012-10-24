@@ -20,7 +20,7 @@ class AddZoneOp(SessionOperation, OperationHelpersMixin):
         for rec_spec in self._records:
             self.required_data_by_key(rec_spec, 'type', str)
 
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
 
@@ -40,15 +40,15 @@ class AddZoneOp(SessionOperation, OperationHelpersMixin):
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
                                                      do_action.arena,
                                                      do_action.segment])
-        lock_srv.try_acquire(resource, sessid)
+        self._acquire_lock(service_provider, resource, sessid)
 
-        session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
+        session_srv.apply_action(sessid, do_action, undo_action)
 
         for rec_spec in self._records:
             rec_type = rec_spec['type']
             act_do = self.make_add_record(rec_type, rec_spec)
             act_undo = self.make_del_record(rec_type, rec_spec)
-            session_srv.apply_action(sessid, act_do, act_undo, txn=txn)
+            session_srv.apply_action(sessid, act_do, act_undo)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

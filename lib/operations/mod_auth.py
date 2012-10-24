@@ -13,7 +13,7 @@ class ModAuthOp(SessionOperation, OperationHelpersMixin):
         SessionOperation.__init__(self, **kwargs)
         self._kwargs = kwargs
 
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
         database_srv = service_provider.get('database')
@@ -27,7 +27,7 @@ class ModAuthOp(SessionOperation, OperationHelpersMixin):
         do_action = ModAuth(**self._kwargs)
 
         # retrieve old key from database needed for undo action
-        auth_data = self.get_auth_data(database_srv, do_action.target, txn)
+        auth_data = self.get_auth_data(database_srv, do_action.target)
         if not auth_data is None:
             key = auth_data['key']
         else:
@@ -40,9 +40,9 @@ class ModAuthOp(SessionOperation, OperationHelpersMixin):
 
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
                                                      do_action.target])
-        lock_srv.try_acquire(resource, sessid)
+        self._acquire_lock(service_provider, resource, sessid)
 
-        session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
+        session_srv.apply_action(sessid, do_action, undo_action)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

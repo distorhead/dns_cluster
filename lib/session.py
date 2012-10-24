@@ -191,6 +191,7 @@ class manager(object):
     @database.transactional(database_srv_attr='_database')
     @validate_session
     def keepalive_session(self, sessid, **kwargs):
+        log.msg("session.keepalive_session")
         txn = kwargs['txn']
         if self._watchdogs.has_key(sessid):
             d = self._unset_session_watchdog(sessid)

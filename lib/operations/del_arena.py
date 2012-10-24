@@ -14,7 +14,7 @@ class DelArenaOp(SessionOperation, OperationHelpersMixin):
         SessionOperation.__init__(self, **kwargs)
         self._kwargs = kwargs
 
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
         database_srv = service_provider.get('database')
@@ -23,7 +23,7 @@ class DelArenaOp(SessionOperation, OperationHelpersMixin):
         do_action = DelArena(**self._kwargs)
 
         # retrieve arena key from database needed for undo action
-        auth_data = self.get_auth_data(database_srv, do_action.arena, txn)
+        auth_data = self.get_auth_data(database_srv, do_action.arena)
         if not auth_data is None:
             key = auth_data['key']
         else:
@@ -34,15 +34,15 @@ class DelArenaOp(SessionOperation, OperationHelpersMixin):
 
         undo_action = AddArena(arena=do_action.arena, key=key)
 
-        self._check_access(service_provider, sessid, session_data, do_action, txn)
+        self._check_access(service_provider, sessid, session_data, do_action)
 
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
                                                      do_action.arena])
-        lock_srv.try_acquire(resource, sessid)
+        self._acquire_lock(service_provider, resource, sessid)
 
-        session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
+        session_srv.apply_action(sessid, do_action, undo_action)
 
-    def _has_access(self, service_provider, sessid, session_data, action, txn):
+    def _has_access(self, service_provider, sessid, session_data, action):
         return self.is_admin(session_data)
 
 

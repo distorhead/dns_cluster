@@ -16,7 +16,7 @@ class AddRecordOp(SessionOperation, OperationHelpersMixin):
         # only for validation
         self.required_data_by_key(self._rec_spec, 'type', str)
 
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         database_srv = service_provider.get('database')
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
@@ -24,12 +24,12 @@ class AddRecordOp(SessionOperation, OperationHelpersMixin):
         # validation of rec_spec also goes here
         do_action = self.make_add_record(self._rec_spec['type'], self._rec_spec)
         undo_action = self.add_to_del_record(database_srv, self._rec_spec['type'],
-                                             do_action, txn)
+                                             do_action)
 
-        self._check_access(service_provider, sessid, session_data, do_action, txn)
+        self._check_access(service_provider, sessid, session_data, do_action)
 
         # retrieve zone arena and segment needed for lock
-        zone_data = self.get_zone_data(database_srv, do_action.zone, txn)
+        zone_data = self.get_zone_data(database_srv, do_action.zone)
         if not zone_data is None:
             arena = zone_data['arena']
             segment = zone_data['segment']
@@ -38,13 +38,13 @@ class AddRecordOp(SessionOperation, OperationHelpersMixin):
 
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,
                                                      segment, do_action.zone])
-        lock_srv.try_acquire(resource, sessid)
+        self._acquire_lock(service_provider, resource, sessid)
 
-        session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
+        session_srv.apply_action(sessid, do_action, undo_action)
 
-    def _has_access(self, service_provider, sessid, session_data, action, txn):
+    def _has_access(self, service_provider, sessid, session_data, action):
         database_srv = service_provider.get('database')
-        return self.has_access_to_zone(database_srv, action.zone, session_data, txn)
+        return self.has_access_to_zone(database_srv, action.zone, session_data)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

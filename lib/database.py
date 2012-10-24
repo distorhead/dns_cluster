@@ -305,5 +305,24 @@ def transactional(**kwargs):
 
     return decorator
 
+def transactional2(func):
+    """
+    Function becomes transactional with opportunity
+        to give external transaction handle in kwargs as 'txn'.
+    The difference with transactional is that database service passed as second arg.
+    Function func should be a method with signature: (self, database_srv *args, **kwargs).
+    """
+
+    @functools.wraps(func)
+    def wrapper(self, database_srv, *args, **kwargs):
+        if kwargs.has_key('txn'):
+            return func(self, database_srv, *args, **kwargs)
+        else:
+            with database_srv.transaction() as txn:
+                kwargs['txn'] = txn
+                return func(self, database_srv, *args, **kwargs)
+
+    return wrapper
+
 
 # vim:sts=4:ts=4:sw=4:expandtab:

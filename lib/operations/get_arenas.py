@@ -9,18 +9,19 @@ __all__ = ['GetArenasOp']
 
 
 class GetArenasOp(SessionOperation, OperationHelpersMixin):
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         database_srv = service_provider.get('database')
         lock_srv = service_provider.get('lock')
 
-        self._check_access(service_provider, sessid, session_data, None, txn)
+        self._check_access(service_provider, sessid, session_data, None)
 
-        lock_srv.try_acquire(self.GLOBAL_RESOURCE, sessid)
+        self._acquire_lock(service_provider, self.GLOBAL_RESOURCE, sessid)
 
         adb = database_srv.dbpool().arena.dbhandle()
-        return bdb_helpers.keys(adb, txn)
+        with database_srv.transaction() as txn:
+            return bdb_helpers.keys(adb, txn)
 
-    def _has_access(self, service_provider, sessid, session_data, _, txn):
+    def _has_access(self, service_provider, sessid, session_data, _):
         return self.is_admin(session_data)
 
 

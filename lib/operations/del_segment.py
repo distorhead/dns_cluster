@@ -14,7 +14,7 @@ class DelSegmentOp(SessionOperation, OperationHelpersMixin):
         SessionOperation.__init__(self, **kwargs)
         self._kwargs = kwargs
 
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
 
@@ -32,9 +32,9 @@ class DelSegmentOp(SessionOperation, OperationHelpersMixin):
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
                                                      do_action.arena,
                                                      do_action.segment])
-        lock_srv.try_acquire(resource, sessid)
+        self._acquire_lock(service_provider, resource, sessid)
 
-        session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
+        session_srv.apply_action(sessid, do_action, undo_action)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

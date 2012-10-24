@@ -18,13 +18,11 @@ class SessionBeginOp(Operation, OperationHelpersMixin):
         lock_srv = service_provider.get('lock')
         database_srv = service_provider.get('database')
 
-        with database_srv.transaction() as txn:
-            self.check_authenticate(self.auth_arena, self.auth_key,
-                                        database_srv, txn)
-            sessid = session_srv.begin_session(self.auth_arena, txn=txn)
-            d = session_srv.set_watchdog(sessid, txn=txn)
-            d.addCallback(lambda x: lock_srv.release_session(sessid))
-            return sessid
+        self.check_authenticate(database_srv, self.auth_arena, self.auth_key)
+        sessid = session_srv.begin_session(self.auth_arena)
+        d = session_srv.set_watchdog(sessid)
+        d.addCallback(lambda x: lock_srv.release_session(sessid))
+        return sessid
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

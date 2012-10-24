@@ -3,6 +3,7 @@
 from lib import bdb_helpers
 from lib.operations.session_operation import SessionOperation
 from lib.operations.operation_helpers import OperationHelpersMixin
+from lib.database import transactional2
 
 
 __all__ = ['GetZonesOp']
@@ -14,37 +15,41 @@ class GetZonesOp(SessionOperation, OperationHelpersMixin):
         self._kwargs = kwargs
         self.segment = self.optional_data_by_key(kwargs, 'segment', str, None)
 
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
+        database_srv = service_provider.get('database')
         if self.is_admin(session_data):
             arena = self.optional_data_by_key(self._kwargs, 'arena', str, None)
 
             if arena is None:
                 # get all zones from all arenas
-                return self._get_all_zones(service_provider, sessid, txn)
+                return self._get_all_zones(database_srv, service_provider, sessid)
             elif self.segment is None:
                 # get all zones from this arena
-                return self._get_arena_zones(arena, service_provider, sessid, txn)
+                return self._get_arena_zones(database_srv, service_provider,
+                                             arena, sessid)
             else:
                 # get zones from this arena and segment
-                return self._get_arena_segment_zones(arena, self.segment,
-                                                     service_provider, sessid, txn)
+                return self._get_arena_segment_zones(database_srv, service_provider,
+                                                     arena, self.segment, sessid)
 
         else:
             arena = session_data['arena']
 
             if self.segment is None:
                 # get all zones from this arena
-                return self._get_arena_zones(arena, service_provider, sessid, txn)
+                return self._get_arena_zones(database_srv, service_provider,
+                                             arena, sessid)
             else:
                 # get zones from this arena and segment
-                return self._get_arena_segment_zones(arena, self.segment,
-                                                     service_provider, sessid, txn)
+                return self._get_arena_segment_zones(database_srv, service_provider,
+                                                     arena, self.segment, sessid)
 
-    def _get_all_zones(self, service_provider, sessid, txn):
-        database_srv = service_provider.get('database')
+    @transactional2
+    def _get_all_zones(self, database_srv, service_provider, sessid, **kwargs):
+        txn = kwargs['txn']
         lock_srv = service_provider.get('lock')
 
-        lock_srv.try_acquire(self.GLOBAL_RESOURCE, sessid)
+        self._acquire_lock(service_provider, self.GLOBAL_RESOURCE, sessid)
 
         szdb = database_srv.dbpool().segment_zone.dbhandle()
         as_zone_map = bdb_helpers.keys_values(szdb, txn)
@@ -62,37 +67,40 @@ class GetZonesOp(SessionOperation, OperationHelpersMixin):
 
         return res
 
-    def _get_arena_zones(self, arena, service_provider, sessid, txn):
-        database_srv = service_provider.get('database')
+    @transactional2
+    def _get_arena_zones(self, database_srv, service_provider, arena, sessid, **kwargs):
+        txn = kwargs['txn']
         lock_srv = service_provider.get('lock')
 
-        self.check_arena_exists(database_srv, arena, txn)
+        self.check_arena_exists(database_srv, arena, txn=txn)
 
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena])
-        lock_srv.try_acquire(resource, sessid)
+        self._acquire_lock(service_provider, resource, sessid)
 
         asdb = database_srv.dbpool().arena_segment.dbhandle()
 
         res = []
         for segment in bdb_helpers.get_all(asdb, arena, txn):
-            res += self._get_arena_segment_zones(arena, segment, service_provider,
-                                                 sessid, txn, False)
+            res += self._get_arena_segment_zones(database_srv, service_provider,
+                                                 arena, segment, sessid, False,
+                                                 txn=txn)
 
         return res
 
-    def _get_arena_segment_zones(self, arena, segment, service_provider, sessid, txn,
-                                 take_lock=True):
-        database_srv = service_provider.get('database')
+    @transactional2
+    def _get_arena_segment_zones(self, database_srv, service_provider, arena, segment,
+                                 sessid, take_lock=True, **kwargs):
+        txn = kwargs['txn']
         lock_srv = service_provider.get('lock')
 
-        self.check_arena_exists(database_srv, arena, txn)
-        self.check_segment_exists(database_srv, arena, segment, txn)
+        self.check_arena_exists(database_srv, arena, txn=txn)
+        self.check_segment_exists(database_srv, arena, segment, txn=txn)
 
         if take_lock:
             resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,
                                                          arena,
                                                          segment])
-            lock_srv.try_acquire(resource, sessid)
+            self._acquire_lock(service_provider, resource, sessid)
 
         szdb = database_srv.dbpool().segment_zone.dbhandle()
 

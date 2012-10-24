@@ -20,7 +20,7 @@ CONFIG_DEFAULT = {
 
     "interface": "localhost",
     "port": 2100,
-    "syncd_pid_path": "twistd.pid",
+    "syncd_pid_path": "syncd.pid",
     "transport-encrypt": False
 }
 

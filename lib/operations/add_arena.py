@@ -14,7 +14,7 @@ class AddArenaOp(SessionOperation, OperationHelpersMixin):
         SessionOperation.__init__(self, **kwargs)
         self._kwargs = kwargs
 
-    def _run_in_session(self, service_provider, sessid, session_data, txn, **kwargs):
+    def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')
 
@@ -22,13 +22,13 @@ class AddArenaOp(SessionOperation, OperationHelpersMixin):
         do_action = AddArena(**self._kwargs)
         undo_action = DelArena(arena=do_action.arena)
 
-        self._check_access(service_provider, sessid, session_data, do_action, txn)
+        self._check_access(service_provider, sessid, session_data, do_action)
 
-        lock_srv.try_acquire(self.GLOBAL_RESOURCE, sessid)
+        self._acquire_lock(service_provider, self.GLOBAL_RESOURCE, sessid)
 
-        session_srv.apply_action(sessid, do_action, undo_action, txn=txn)
+        session_srv.apply_action(sessid, do_action, undo_action)
 
-    def _has_access(self, service_provider, sessid, session_data, action, txn):
+    def _has_access(self, service_provider, sessid, session_data, action):
         return self.is_admin(session_data)
 
 

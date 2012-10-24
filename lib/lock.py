@@ -23,8 +23,8 @@ class manager(object):
     RESOURCE_DELIMITER = "::"
     RECORD_DELIMITER = " "
 
-    REPEAT_PERIOD_SECONDS_DEFAULT = 5.0
-    MAX_ATTEMPTS_DEFAULT = 1
+    REPEAT_PERIOD_SECONDS_DEFAULT = 30.0
+    MAX_ATTEMPTS_DEFAULT = 2
 
     DATABASES = {
         "lock": {
@@ -99,6 +99,10 @@ class manager(object):
                                 holder_sessid = int(holder_info_list[0])
                                 if holder_sessid == sessid:
                                     # deadlock ring detected
+                                    log.msg("deadlock ring detected when trying "
+                                            "to acquire lock for "
+                                            "resource '{}' in session '{}'".format(
+                                                resource, sessid))
                                     return False
 
                                 next_resource = lwdb.get(str(holder_sessid), None, txn)

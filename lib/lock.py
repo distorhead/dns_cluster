@@ -23,9 +23,6 @@ class manager(object):
     RESOURCE_DELIMITER = "::"
     RECORD_DELIMITER = " "
 
-    REPEAT_PERIOD_SECONDS_DEFAULT = 30.0
-    MAX_ATTEMPTS_DEFAULT = 2
-
     DATABASES = {
         "lock": {
             "type": database.bdb.DB_BTREE,
@@ -63,66 +60,70 @@ class manager(object):
     def dbpool(self):
         return self._dbpool
 
-    def acquire(self, resource, sessid, **kwargs):
+    @database.transactional(database_srv_attr='_database')
+    def mark_acquire_wait(self, resource, sessid, **kwargs):
         """
-        Blocking method to acquire a lock.
-        Returns True if acquire successful.
-        Returns False if acquire cannot be done.
-        Method internally open's transaction when trying to acquire lock.
+        Mark session sessid as waiting for resource.
+        Method also try to detect possible deadlocks.
+        Blocking method.
         """
 
-        repeat_period = kwargs.get('repeat_period', self.REPEAT_PERIOD_SECONDS_DEFAULT)
-        max_attempts = kwargs.get('max_attempts', self.MAX_ATTEMPTS_DEFAULT)
+        txn = kwargs['txn']
 
-        ldb = self.dbpool().lock.dbhandle()
-        lwdb = self.dbpool().lock_wait.dbhandle()
-        attempt = 1
-        while attempt <= max_attempts:
-            try:
-                self.try_acquire(resource, sessid)
-                bdb_helpers.delete(lwdb, str(sessid), None)
-                return True
-            except LockError:
-                with self._database.transaction() as txn:
-                    next_resource = resource
-                    while not next_resource is None:
-                        holder_info = ldb.get(next_resource, None, txn)
-                        if holder_info is None:
-                            # this is inconsistency of database
-                            return False
-                        else:
-                            holder_info_list = holder_info.split(self.RECORD_DELIMITER, 1)
-                            if len(holder_info_list) != 2:
-                                # this is inconsistency of database
-                                return False
-                            else:
-                                holder_sessid = int(holder_info_list[0])
-                                if holder_sessid == sessid:
-                                    # deadlock ring detected
-                                    log.msg("deadlock ring detected when trying "
+        if self._is_valid_resource(resource):
+            ldb = self.dbpool().lock.dbhandle()
+            lwdb = self.dbpool().lock_wait.dbhandle()
+
+            next_resource = resource
+            while not next_resource is None:
+                holder_info = ldb.get(next_resource, None, txn)
+                if not holder_info is None:
+                    holder_info_list = holder_info.split(self.RECORD_DELIMITER, 1)
+                    if len(holder_info_list) == 2:
+                        holder_sessid = int(holder_info_list[0])
+                        if holder_sessid == sessid:
+                            # deadlock ring detected
+                            raise LockError("deadlock ring detected when trying "
                                             "to acquire lock for "
                                             "resource '{}' in session '{}'".format(
                                                 resource, sessid))
-                                    return False
 
-                                next_resource = lwdb.get(str(holder_sessid), None, txn)
+                        next_resource = lwdb.get(str(holder_sessid), None, txn)
 
-                    if not lwdb.exists(str(sessid), txn):
-                        lwdb.put(str(sessid), resource, txn)
+            if not lwdb.exists(str(sessid), txn):
+                # mark session as waiting for lock
+                lwdb.put(str(sessid), resource, txn)
 
-                time.sleep(repeat_period)
-                attempt += 1
+        else:
+            self._resource_not_valid_failure(resource)
 
-        bdb_helpers.delete(lwdb, str(sessid), None)
-        return False
+    @database.transactional(database_srv_attr='_database')
+    def unmark_acquire_wait(self, resource, sessid, **kwargs):
+        """
+        Unmark session sessid as waiting for resource.
+        Blocking method.
+        """
+
+        txn = kwargs['txn']
+
+        if self._is_valid_resource(resource):
+            lwdb = self.dbpool().lock_wait.dbhandle()
+            bdb_helpers.delete(lwdb, str(sessid), txn)
+        else:
+            self._resource_not_valid_failure(resource)
 
     @database.transactional(database_srv_attr='_database')
     def try_acquire(self, resource, sessid, **kwargs):
+        """
+        Try to acquire resource.
+        Returns True or False on success or failure respectively.
+        Block method.
+        """
+
         if self._is_valid_resource(resource):
             txn = kwargs['txn']
             l = self.Lock(resource, sessid)
-            if not self._do_acquire(l, txn):
-                self._lock_failure(resource, sessid)
+            return self._do_acquire(l, txn)
         else:
             self._resource_not_valid_failure(resource)
 

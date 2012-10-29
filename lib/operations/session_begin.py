@@ -2,6 +2,7 @@
 
 from lib.operation import Operation
 from lib.operations.operation_helpers import OperationHelpersMixin
+from lib.twisted_helpers import threaded
 
 
 __all__ = ['SessionBeginOp']
@@ -13,6 +14,7 @@ class SessionBeginOp(Operation, OperationHelpersMixin):
         self.auth_arena = self.required_data_by_key(kwargs, 'auth_arena', str)
         self.auth_key = self.required_data_by_key(kwargs, 'auth_key', str)
 
+    @threaded
     def _do_run(self, service_provider, **kwargs):
         session_srv = service_provider.get('session')
         lock_srv = service_provider.get('lock')

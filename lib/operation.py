@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import functools
+
 from lib.common import retrieve_key, cast_type
 
 
@@ -56,11 +58,18 @@ class Operation(object):
             raise OperationError("Operation object must not be used repeatedly")
         else:
             self._used = True
-            res = self._do_run(service_provider, **kwargs)
-            return res
+            return self._do_run(service_provider, **kwargs)
 
     def _do_run(self, service_provider, **kwargs):
-        assert 0, "Operation _do_run method is not implemented"
+        """
+        Should return:
+            - result of operation
+            - deferred fired up with result when operation is done
+                NOTE: deferred should be fired up in the reactor thread!
+        """
+
+        assert 0, "{}._do_run method is not implemented".format(
+                      self.__class__.__name__)
 
 
 # vim:sts=4:ts=4:sw=4:expandtab:

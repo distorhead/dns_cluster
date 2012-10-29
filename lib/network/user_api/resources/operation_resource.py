@@ -5,7 +5,7 @@ import yaml
 import urllib
 
 from twisted.web import server, resource
-from twisted.internet import threads
+from twisted.internet import threads, defer
 from twisted.python import log
 
 from lib.operations import *
@@ -50,8 +50,9 @@ class OperationResource(resource.Resource):
         self._es = EventStorage('operation_done')
 
     def run_operation(self, operation, request):
-        d = threads.deferToThread(operation.run, self._sp)
-        d.addCallback(self._operation_done, operation)
+        d = defer.Deferred()
+        res = operation.run(self._sp)
+        self._operation_done(res, operation, d)
         return d
 
     def operation_failure(self, failure, request):
@@ -82,11 +83,23 @@ class OperationResource(resource.Resource):
     def register_event(self, event):
         return self._es.register_event(event)
 
-    def _operation_done(self, res, operation):
+    def _operation_done(self, res, operation, d):
+        if isinstance(res, defer.Deferred):
+            log.msg("_operaiton_done with deferred")
+            # Operation returns deferred,
+            #   so chain _operation_done for next result.
+            res.addCallback(self._operation_done, operation, d)
+            res.addErrback(d.errback)
+        else:
+            log.msg("_operaiton_done with result")
+            # Operation returns its final result.
+            self._generate_event(res, operation)
+            d.callback(res)
+
+    def _generate_event(self, res, operation):
         d = self._es.retrieve_event('operation_done')
         if not d is None:
             d.callback(operation)
-        return res
 
 
 def request_handler(func):

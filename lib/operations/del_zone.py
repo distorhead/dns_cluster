@@ -91,7 +91,7 @@ class DelZoneOp(SessionOperation, OperationHelpersMixin):
 
     def _apply_stage_done(self, _, op_run_defer, service_provider, sessid, session_data):
         log.msg("_apply_stage_done")
-        # action applyed - finalize operation run
+        # action applied - finalize operation run
         op_run_defer.callback(None)
 
 

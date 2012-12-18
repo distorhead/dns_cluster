@@ -12,4 +12,3 @@ tests/databases/gamma/*
 *.log.[0-9]
 dropin.cache
 .vimsession
-operation.txt

@@ -67,7 +67,8 @@ class SessionOperation(Operation, OperationHelpersMixin):
         log.msg("_check_authenticate")
         database_srv = service_provider.get('database')
         # method raises exception on authentication failure
-        self.check_authenticate(database_srv, self.auth_arena, self.auth_key)
+        # method transactional
+        return self.check_authenticate(database_srv, self.auth_arena, self.auth_key)
 
     def _check_authenticate_done(self, _, op_result_defer, service_provider, **kwargs):
         log.msg("_check_authenticate_done")
@@ -136,6 +137,7 @@ class SessionOperation(Operation, OperationHelpersMixin):
         if self.sessid is None:
             d = self._commit_session(sessid, service_provider)
             d.addCallback(lambda _: op_result_defer.callback(op_result))
+            d.addErrback(lambda x: (self._rollback_session(sessid, service_provider), x)[1])
             d.addErrback(op_result_defer.errback)
         else:
             op_result_defer.callback(op_result)

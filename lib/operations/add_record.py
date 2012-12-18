@@ -36,6 +36,8 @@ class AddRecordOp(SessionOperation, OperationHelpersMixin):
 
     @threaded
     def _prepare_stage(self, service_provider, sessid, session_data):
+        log.msg("_prepare_stage")
+
         database_srv = service_provider.get('database')
 
         # validation of rec_spec also goes here
@@ -43,6 +45,7 @@ class AddRecordOp(SessionOperation, OperationHelpersMixin):
         undo_action = self.add_to_del_record(database_srv, self._rec_spec['type'],
                                              do_action)
 
+        # check zone is accessable under this session
         self._check_access(service_provider, sessid, session_data, do_action)
 
         # retrieve zone arena and segment needed for lock
@@ -57,6 +60,8 @@ class AddRecordOp(SessionOperation, OperationHelpersMixin):
 
     def _prepare_stage_done(self, data, op_run_defer, service_provider,
                                 sessid, session_data):
+        log.msg("_prepare_stage_done")
+
         lock_srv = service_provider.get('lock')
 
         do_action, undo_action, arena, segment = data

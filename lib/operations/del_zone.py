@@ -94,5 +94,9 @@ class DelZoneOp(SessionOperation, OperationHelpersMixin):
         # action applied - finalize operation run
         op_run_defer.callback(None)
 
+    def _has_access(self, service_provider, sessid, session_data, action):
+        database_srv = service_provider.get('database')
+        return self.has_access_to_zone(database_srv, action.zone, session_data)
+
 
 # vim:sts=4:ts=4:sw=4:expandtab:

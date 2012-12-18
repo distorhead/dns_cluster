@@ -59,7 +59,7 @@ def retrieve_key(dct, key, **kwargs):
     default = kwargs.get("default", None)
 
     if not dct.has_key(key):
-        if hasattr(failure_func, "__call__"):
+        if is_callable(failure_func):
             failure_func(failure_msg)
         return default
 
@@ -77,7 +77,7 @@ def cast_type(value, type, **kwargs):
         try:
             return type(value)
         except:
-            if hasattr(failure_func, "__call__"):
+            if is_callable(failure_func):
                 failure_func(failure_msg)
             return default
 

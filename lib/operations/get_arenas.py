@@ -28,6 +28,7 @@ class GetArenasOp(SessionOperation, OperationHelpersMixin):
 
     @threaded
     def _prepare_stage(self, service_provider, sessid, session_data):
+        log.msg("_prepare_stage")
         self._check_access(service_provider, sessid, session_data, None)
 
     def _prepare_stage_done(self, _, op_run_defer, service_provider,

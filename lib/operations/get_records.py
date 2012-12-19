@@ -20,25 +20,71 @@ class GetRecordsOp(SessionOperation, OperationHelpersMixin):
         self.zone = self.required_data_by_key(kwargs, 'zone', str)
 
     def _run_in_session(self, service_provider, sessid, session_data, **kwargs):
-        database_srv = service_provider.get('database')
-        lock_srv = service_provider.get('lock')
+        log.msg("_run_in_session")
 
-        self.check_zone_exists(database_srv, self.zone)
+        op_run_defer = defer.Deferred()
 
+        # check access here and retrieve zone data
+        d = self._prepare_stage(service_provider, sessid, session_data)
+        d.addCallback(self._prepare_stage_done, op_run_defer,
+                          service_provider, sessid, session_data)
+        # prepare stage failure causes entire operation failure
+        d.addErrback(op_run_defer.errback)
+
+        return op_run_defer
+
+    @threaded
+    def _prepare_stage(self, service_provider, sessid, session_data):
+        log.msg("_prepare_stage")
+
+        # also checks existance of zone
         self._check_access(service_provider, sessid, session_data, None)
 
-        # retrieve arena and segment needed for lock resource
+        database_srv = service_provider.get('database')
         zone_data = self.get_zone_data(database_srv, self.zone)
         if not zone_data is None:
-            arena = zone_data['arena']
+            if self.is_admin(session_data):
+                arena = zone_data['arena']
+            else:
+                arena = session_data['arena']
             segment = zone_data['segment']
         else:
-            arena = segment = ""
+            # This is internal error, because access checking should give 'access denied'
+            #   if zone is not exists.
+            assert 0, "Unable to get arena and segment of zone '{}', should not get this".format(
+                          self.zone)
 
-        # construct and lock resource
+        return (arena, segment)
+
+    def _prepare_stage_done(self, zone_data, op_run_defer, service_provider,
+                                sessid, session_data):
+        log.msg("_prepare_stage_done")
+
+        lock_srv = service_provider.get('lock')
+
+        # setup lock stage
+        arena, segment = zone_data
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE, arena,
                                                      segment, self.zone])
-        self._acquire_lock(service_provider, resource, sessid)
+        d = self._lock_stage(service_provider, resource, sessid)
+        d.addCallback(self._lock_stage_done, op_run_defer, service_provider,
+                          sessid, session_data, zone_data)
+        # lock stage failure causes entire operation failure
+        d.addErrback(op_run_defer.errback)
+
+    def _lock_stage_done(self, _, op_run_defer, service_provider,
+                             sessid, session_data, zone_data):
+        log.msg("_lock_stage_done")
+        d = self._retrieve_stage(service_provider, zone_data, sessid, session_data)
+        d.addCallback(self._retrieve_stage_done, op_run_defer, service_provider,
+                          sessid, session_data)
+        # retrieve stage failure causes entire operation failure
+        d.addErrback(op_run_defer.errback)
+
+    @threaded
+    def _retrieve_stage(self, service_provider, zone_data, sessid, session_data):
+        log.msg("_retrieve_stage")
+        database_srv = service_provider.get('database')
 
         res = []
         ddb = database_srv.dbpool().dns_data.dbhandle()
@@ -54,6 +100,11 @@ class GetRecordsOp(SessionOperation, OperationHelpersMixin):
                         res.append(rec_spec)
 
         return res
+
+    def _retrieve_stage_done(self, res, op_run_defer, service_provider,
+                                 sessid, session_data):
+        log.msg("_retrieve_stage_done")
+        op_run_defer.callback(res)
 
     def _has_access(self, service_provider, sessid, session_data, _):
         database_srv = service_provider.get('database')

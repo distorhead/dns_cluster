@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from twisted.internet import reactor, threads, defer
 from twisted.python import log
 
 from lib.operations.session_operation import SessionOperation
@@ -60,6 +61,9 @@ class ModAuthOp(SessionOperation, OperationHelpersMixin):
     def _prepare_stage_done(self, actions, op_run_defer, service_provider,
                                 sessid, session_data):
         log.msg("_prepare_stage_done")
+
+        do_action, undo_action = actions
+
         lock_srv = service_provider.get('lock')
 
         resource = lock_srv.RESOURCE_DELIMITER.join([self.GLOBAL_RESOURCE,

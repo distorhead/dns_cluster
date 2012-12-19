@@ -69,11 +69,12 @@ class GetSegmentsOp(SessionOperation, OperationHelpersMixin):
         d = self._retrieve_stage(service_provider, arena, sessid, session_data)
         d.addCallback(self._retrieve_stage_done, op_run_defer, service_provider,
                           sessid, session_data)
-        # apply stage failure causes entire operation failure
+        # retrieve stage failure causes entire operation failure
         d.addErrback(op_run_defer.errback)
 
     @threaded
     def _retrieve_stage(self, service_provider, arena, sessid, session_data):
+        log.msg("_retrieve_stage")
         database_srv = service_provider.get('database')
 
         asdb = database_srv.dbpool().arena_segment.dbhandle()
